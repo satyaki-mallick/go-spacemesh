@@ -19,6 +19,11 @@ class ContainerSpec():
         self.entrypoint = centry
         self.args = kwargs
 
+
+    def update_something(self, dep, amount):
+        dep['spec']['parallelism'] = amount
+        return dep
+
     def update_deployment(self, dep):
         containers = dep['spec']['template']['spec']['containers']
         for c in containers:

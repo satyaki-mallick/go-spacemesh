@@ -17,8 +17,8 @@ from elasticsearch_dsl import Search, Q
 
 from tests.misc import NodeInfo, ContainerSpec
 
-BOOT_DEPLOYMENT_FILE = './k8s/bootstrap-w-conf.yml'
-CLIENT_DEPLOYMENT_FILE = './k8s/client-w-conf.yml'
+BOOT_DEPLOYMENT_FILE = './k8s/bsjob.yml'
+CLIENT_DEPLOYMENT_FILE = './k8s/ajob.yml'
 ORACLE_DEPLOYMENT_FILE = './k8s/oracle.yml'
 
 ELASTICSEARCH_URL = "http://{0}".format(testconfig['elastic']['host'])
@@ -48,6 +48,42 @@ def wait_to_deployment_to_be_ready(deployment_name, name_space, time_out=None):
         if time_out and total_sleep_time > time_out:
             raise Exception("Timeout waiting to deployment to be ready")
 
+def wait_job_to_be_ready(job_name, name_space, totaljob, time_out=None):
+    total_sleep_time = 0
+    while True:
+        resp = client.BatchV1Api().read_namespaced_job(name=job_name, namespace=name_space)
+        print(resp.status.active)
+        print("are active")
+        if resp.status.active == totaljob:
+            print("Total time waiting for deployment {0}: {1} sec".format(job_name, total_sleep_time))
+            break
+        time.sleep(1)
+        total_sleep_time += 1
+
+        if time_out and total_sleep_time > time_out:
+            raise Exception("Timeout waiting to deployment to be ready")
+
+def create_job(file_name, name_space, amount, container_specs=None):
+    print("Creating job " + file_name + " in namespace " + name_space)
+    with open(path.join(path.dirname(__file__), file_name)) as f:
+        dep = yaml.safe_load(f)
+    if container_specs:
+        dep = container_specs.update_deployment(dep)
+        # dep = container_specs.update_something(dep, amount)
+
+    k8s_beta = client.BatchV1Api()
+    resp1 = k8s_beta.create_namespaced_job(body=dep, namespace=name_space)
+    wait_job_to_be_ready(resp1.metadata._name, name_space, amount,
+                                   time_out=testconfig['deployment_ready_time_out'])
+    return resp1
+
+def delete_job(job_name, name_space):
+    k8s_beta = client.BatchV1Api()
+    resp = k8s_beta.delete_namespaced_job(name=job_name,
+                                                 namespace=name_space,
+                                                 body=client.V1DeleteOptions(propagation_policy='Foreground',
+                                                                             grace_period_seconds=5))
+    return resp
 
 def create_deployment(file_name, name_space, container_specs):
     with open(path.join(path.dirname(__file__), file_name)) as f:
@@ -136,7 +172,7 @@ def setup_bootstrap(request, load_config, setup_oracle, create_configmap):
                               oracle_server='http://{0}:3030'.format(setup_oracle),
                               genesis_time=GENESIS_TIME.isoformat('T', 'seconds'))
 
-        resp = create_deployment(BOOT_DEPLOYMENT_FILE, name_space, cspec)
+        resp = create_job(BOOT_DEPLOYMENT_FILE, name_space, 1, cspec)
 
         bs_info.bs_deployment_name = resp.metadata._name
         namespaced_pods = client.CoreV1Api().list_namespaced_pod(namespace=name_space).items
@@ -157,7 +193,7 @@ def setup_bootstrap(request, load_config, setup_oracle, create_configmap):
 
     def fin():
         global bs_info
-        delete_deployment(bs_info.bs_deployment_name, testconfig['namespace'])
+        delete_job(bs_info.bs_deployment_name, testconfig['namespace'])
 
     request.addfinalizer(fin)
     return _setup_bootstrap_in_namespace(testconfig['namespace'])
@@ -174,7 +210,7 @@ def setup_clients(request, setup_oracle, setup_bootstrap):
                               oracle_server='http://{0}:3030'.format(setup_oracle),
                               genesis_time=GENESIS_TIME.isoformat('T', 'seconds'))
 
-        resp = create_deployment(CLIENT_DEPLOYMENT_FILE, name_space, cspec)
+        resp = create_job(CLIENT_DEPLOYMENT_FILE, name_space, cspec)
 
         client_info.bs_deployment_name = resp.metadata._name
         namespaced_pods = client.CoreV1Api().list_namespaced_pod(namespace=name_space, include_uninitialized=True).items
@@ -201,7 +237,7 @@ def setup_clients(request, setup_oracle, setup_bootstrap):
 
     def fin():
         global client_info
-        delete_deployment(client_info.bs_deployment_name, testconfig['namespace'])
+        delete_job(client_info.bs_deployment_name, testconfig['namespace'])
 
     request.addfinalizer(fin)
     return _setup_clients_in_namespace(testconfig['namespace'])
