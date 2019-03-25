@@ -54,7 +54,7 @@ func NewPersistentMesh(path string, rewardConfig RewardConfig, mesh MeshValidato
 		tortoise:     mesh,
 		state:        state,
 		done:         make(chan struct{}),
-		MeshDB:       NewMeshDB(path, logger),
+		MeshDB:       NewPersistentMeshDB(path, logger),
 		rewardConfig: rewardConfig,
 	}
 

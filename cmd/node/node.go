@@ -279,7 +279,7 @@ func (app *SpacemeshApp) initServices(instanceName string, swarm server.Service,
 	}
 	ld := time.Duration(app.Config.LayerDurationSec) * time.Second
 	clock := timesync.NewTicker(timesync.RealClock{}, ld, gTime)
-	mdb := mesh.NewMeshDB(dbStorepath, lg.WithName("meshdb"))
+	mdb := mesh.NewPersistentMeshDB(dbStorepath, lg.WithName("meshdb"))
 	trtl := consensus.NewAlgorithm(consensus.NewNinjaTortoise(layerSize, mesh.MeshCache{MeshDB: mdb}, lg.WithName("trtl")))
 	msh := mesh.NewMesh(mdb, app.Config.REWARD, trtl, processor, lg.WithName("mesh")) //todo: what to do with the logger?
 

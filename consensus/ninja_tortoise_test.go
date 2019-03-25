@@ -18,7 +18,7 @@ import (
 const Path = "../tmp/tortoise/"
 
 func getPersistentMash() *mesh.MeshDB {
-	return mesh.NewMeshDB(fmt.Sprintf(Path+"ninje_tortoise/"), log.New("ninje_tortoise", "", ""))
+	return mesh.NewPersistentMeshDB(fmt.Sprintf(Path+"ninje_tortoise/"), log.New("ninje_tortoise", "", ""))
 }
 
 func persistenceTeardown() {
@@ -67,7 +67,7 @@ func TestNinjaTortoise_GlobalOpinion(t *testing.T) {
 
 func TestForEachInView(t *testing.T) {
 	blocks := make(map[mesh.BlockID]*mesh.Block)
-	mdb := mesh.NewMeshDB("TestForEachInView", log.New("TestForEachInView", "", ""))
+	mdb := mesh.NewPersistentMeshDB("TestForEachInView", log.New("TestForEachInView", "", ""))
 
 	defer mdb.Close()
 	alg := NewNinjaTortoise(2, mesh.MeshCache{MeshDB: mdb}, log.New("TestForEachInView", "", ""))
@@ -234,7 +234,7 @@ func sanity(blocks *mesh.MeshDB, layers int, layerSize int, patternSize int, bad
 //vote explicitly for two previous layers
 //correction vectors compensate for double count
 func TestNinjaTortoise_Sanity2(t *testing.T) {
-	mdb := mesh.NewMeshDB("TestNinjaTortoise_Sanity2", log.New("TestNinjaTortoise_Sanity2", "", ""))
+	mdb := mesh.NewPersistentMeshDB("TestNinjaTortoise_Sanity2", log.New("TestNinjaTortoise_Sanity2", "", ""))
 	alg := NewNinjaTortoise(3, mesh.MeshCache{MeshDB: mdb}, log.New("TestNinjaTortoise_Sanity2", "", ""))
 	l := createMulExplicitLayer(0, map[mesh.LayerID]*mesh.Layer{}, nil, 1)
 	l1 := createMulExplicitLayer(1, map[mesh.LayerID]*mesh.Layer{l.Index(): l}, map[mesh.LayerID][]int{0: {0}}, 3)

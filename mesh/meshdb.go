@@ -26,7 +26,7 @@ type MeshDB struct {
 	lhMutex            sync.Mutex
 }
 
-func NewMeshDB(path string, log log.Log) *MeshDB {
+func NewPersistentMeshDB(path string, log log.Log) *MeshDB {
 	bdb := database.NewLevelDbStore(path+"blocks", nil, nil)
 	ldb := database.NewLevelDbStore(path+"layers", nil, nil)
 	vdb := database.NewLevelDbStore(path+"validity", nil, nil)

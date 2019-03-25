@@ -3,6 +3,7 @@ package mesh
 import (
 	"fmt"
 	"github.com/spacemeshos/go-spacemesh/crypto"
+	"github.com/spacemeshos/go-spacemesh/database"
 	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/go-spacemesh/rand"
 	"github.com/stretchr/testify/assert"
@@ -76,7 +77,7 @@ func createLayerWithRandVoting(index LayerID, prev []*Layer, blocksInLayer int, 
 }
 
 func TestForEachInView_Persistent(t *testing.T) {
-	mdb := NewMeshDB(Path+"/mesh_db/", log.New("TestForEachInView", "", ""))
+	mdb := NewPersistentMeshDB(Path+"/mesh_db/", log.New("TestForEachInView", "", ""))
 	defer mdb.Close()
 	defer teardown()
 	testForeachInView(mdb, t)
@@ -84,6 +85,20 @@ func TestForEachInView_Persistent(t *testing.T) {
 
 func TestForEachInView_InMem(t *testing.T) {
 	mdb := NewMemMeshDB(log.New("TestForEachInView", "", ""))
+	testForeachInView(mdb, t)
+}
+
+func TestForEachInView_GoCache(t *testing.T) {
+	db := database.NewMemCache()
+	mdb := &MeshDB{
+		Log:                log.New("TestForEachInView", "", ""),
+		blocks:             db,
+		layers:             db,
+		contextualValidity: db,
+		orphanBlocks:       make(map[LayerID]map[BlockID]struct{}),
+		layerMutex:         make(map[LayerID]*layerMutex),
+	}
+
 	testForeachInView(mdb, t)
 }
 
