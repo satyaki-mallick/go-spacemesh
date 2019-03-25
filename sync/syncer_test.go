@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/spacemeshos/go-spacemesh/consensus"
-	"github.com/spacemeshos/go-spacemesh/database"
 	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/go-spacemesh/mesh"
 	"github.com/spacemeshos/go-spacemesh/p2p"
@@ -14,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"math/big"
+	"os"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -24,6 +24,7 @@ var conf = Configuration{2 * time.Second, 1, 300, 100 * time.Millisecond}
 const (
 	levelDB  = "LevelDB"
 	memoryDB = "MemoryDB"
+	Path     = "../tmp/sync/"
 )
 
 type MockTimer struct {
@@ -50,7 +51,7 @@ func SyncMockFactory(number int, conf Configuration, name string, dbType string)
 		net := sim.NewNode()
 		name := fmt.Sprintf(name+"_%d", i)
 		l := log.New(name, "", "")
-		sync := NewSync(net, getMesh(name+"_"+time.Now().String(), dbType), BlockValidatorMock{}, conf, tk, l)
+		sync := NewSync(net, getMesh(dbType, name+"_"+time.Now().String()), BlockValidatorMock{}, conf, tk, l)
 		ts.Start()
 		nodes = append(nodes, sync)
 		p2ps = append(p2ps, net)
@@ -84,33 +85,24 @@ func (s *stateMock) ApplyTransactions(id mesh.LayerID, tx mesh.Transactions) (ui
 	return 0, nil
 }
 
-func ConfigTst() mesh.RewardConfig {
-	return mesh.RewardConfig{
-		big.NewInt(10),
-		big.NewInt(5000),
-		big.NewInt(15),
-		15,
-		5,
-	}
+var rewardConf = mesh.RewardConfig{
+	big.NewInt(10),
+	big.NewInt(5000),
+	big.NewInt(15),
+	15,
+	5,
 }
 
 func getMeshWithLevelDB(id string) *mesh.Mesh {
-	//time := time.Now()
-	bdb := database.NewLevelDbStore("blocks_test_"+id, nil, nil)
-	ldb := database.NewLevelDbStore("layers_test_"+id, nil, nil)
-	cv := database.NewLevelDbStore("contextually_valid_test_"+id, nil, nil)
-	//odb := database.NewLevelDbStore("orphans_test_"+id+"_"+time.String(), nil, nil)
-	layers := mesh.NewMesh(ldb, bdb, cv, ConfigTst(), &MeshValidatorMock{}, &stateMock{}, log.New(id, "", ""))
-	return layers
+	return mesh.NewPersistentMesh(fmt.Sprintf(Path+"%v/", id), rewardConf, &MeshValidatorMock{}, &stateMock{}, log.New(id, "", ""))
+}
+
+func persistenceTeardown() {
+	os.RemoveAll(Path)
 }
 
 func getMeshWithMemoryDB(id string) *mesh.Mesh {
-	bdb := database.NewMemDatabase()
-	ldb := database.NewMemDatabase()
-	cv := database.NewMemDatabase()
-	//odb := database.NewMemDatabase()
-	layers := mesh.NewMesh(ldb, bdb, cv, ConfigTst(), &MeshValidatorMock{}, &stateMock{}, log.New(id, "", ""))
-	return layers
+	return mesh.NewMemMesh(rewardConf, &MeshValidatorMock{}, &stateMock{}, log.New(id, "", ""))
 }
 
 func getMesh(dbType, id string) *mesh.Mesh {
@@ -377,6 +369,7 @@ func getPeersMock(peers []p2p.Peer) p2p.PeersImpl {
 func syncTest(dpType string, t *testing.T) {
 
 	syncs, nodes := SyncMockFactory(4, conf, "SyncMultipleNodes_", dpType)
+	defer persistenceTeardown()
 	syncObj1 := syncs[0]
 	defer syncObj1.Close()
 	syncObj2 := syncs[1]

@@ -2,7 +2,6 @@ package mesh
 
 import (
 	"github.com/spacemeshos/go-spacemesh/address"
-	"github.com/spacemeshos/go-spacemesh/database"
 	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/go-spacemesh/rand"
 	"github.com/stretchr/testify/assert"
@@ -44,12 +43,7 @@ func ConfigTst() RewardConfig {
 }
 
 func getMeshWithMapState(id string, s StateUpdater) *Mesh {
-
-	//time := time.Now()
-	bdb := database.NewMemDatabase()
-	ldb := database.NewMemDatabase()
-	cdb := database.NewMemDatabase()
-	layers := NewMesh(ldb, bdb, cdb, ConfigTst(), &MeshValidatorMock{}, s, log.New(id, "", ""))
+	layers := NewMemMesh(ConfigTst(), &MeshValidatorMock{}, s, log.New(id, "", ""))
 	return layers
 }
 

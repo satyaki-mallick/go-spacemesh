@@ -2,7 +2,6 @@ package mesh
 
 import (
 	"bytes"
-	"github.com/spacemeshos/go-spacemesh/database"
 	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/stretchr/testify/assert"
 	"math/big"
@@ -29,12 +28,8 @@ func (MockState) ApplyRewards(layer LayerID, miners map[string]struct{}, underQu
 }
 
 func getMesh(id string) *Mesh {
-
-	//time := time.Now()
-	bdb := database.NewMemDatabase()
-	ldb := database.NewMemDatabase()
-	cdb := database.NewMemDatabase()
-	layers := NewMesh(ldb, bdb, cdb, ConfigTst(), &MeshValidatorMock{}, &MockState{}, log.New(id, "", ""))
+	lg := log.New(id, "", "")
+	layers := NewMesh(NewMemMeshDB(lg), ConfigTst(), &MeshValidatorMock{}, &MockState{}, lg)
 	return layers
 }
 

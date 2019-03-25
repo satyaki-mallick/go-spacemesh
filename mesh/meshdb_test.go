@@ -3,17 +3,24 @@ package mesh
 import (
 	"fmt"
 	"github.com/spacemeshos/go-spacemesh/crypto"
-	"github.com/spacemeshos/go-spacemesh/database"
 	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/go-spacemesh/rand"
 	"github.com/stretchr/testify/assert"
 	"math"
+	"os"
 	"testing"
 	"time"
 )
 
-const GenesisIdx = 0
-const GenesisId = 420
+const (
+	GenesisIdx = 0
+	GenesisId  = 420
+	Path       = "../tmp/sync/"
+)
+
+func teardown() {
+	os.RemoveAll(Path)
+}
 
 func GenesisLayer() *Layer {
 	l := NewLayer(GenesisIdx)
@@ -68,14 +75,20 @@ func createLayerWithRandVoting(index LayerID, prev []*Layer, blocksInLayer int, 
 	return l
 }
 
-func TestForEachInView(t *testing.T) {
-
-	db := database.NewLevelDbStore("TestForEachInView", nil, nil)
-	mdb := NewMeshDB(db, db, db, log.New("TestForEachInView", "", ""))
+func TestForEachInView_Persistent(t *testing.T) {
+	mdb := NewMeshDB(Path+"/mesh_db/", log.New("TestForEachInView", "", ""))
 	defer mdb.Close()
+	defer teardown()
+	testForeachInView(mdb, t)
+}
 
+func TestForEachInView_InMem(t *testing.T) {
+	mdb := NewMemMeshDB(log.New("TestForEachInView", "", ""))
+	testForeachInView(mdb, t)
+}
+
+func testForeachInView(mdb *MeshDB, t *testing.T) {
 	blocks := make(map[BlockID]*Block)
-
 	l := GenesisLayer()
 	mdb.addLayer(l)
 	for i := 0; i < 4; i++ {
@@ -86,28 +99,21 @@ func TestForEachInView(t *testing.T) {
 		}
 		l = lyr
 	}
-
 	mp := map[BlockID]struct{}{}
-
 	foo := func(nb *Block) {
 		fmt.Println("process block", "layer", nb.ID(), nb.Layer())
 		mp[nb.ID()] = struct{}{}
 	}
-
 	errHandler := func(err error) {
 		log.Error("error while traversing view ", err)
 	}
-
 	ids := map[BlockID]struct{}{}
 	for _, b := range l.Blocks() {
 		ids[b.Id] = struct{}{}
 	}
-
-	ForBlockInView(ids, MeshCache{meshDB: mdb}, 0, foo, errHandler)
-
+	MeshCache{MeshDB: mdb}.ForBlockInView(ids, 0, foo, errHandler)
 	for _, bl := range blocks {
 		_, found := mp[bl.ID()]
 		assert.True(t, found, "did not process block  ", bl)
 	}
-
 }

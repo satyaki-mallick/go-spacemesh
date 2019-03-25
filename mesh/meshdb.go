@@ -15,7 +15,7 @@ type layerMutex struct {
 	layerWorkers uint32
 }
 
-type meshDB struct {
+type MeshDB struct {
 	log.Log
 	layers             database.DB
 	blocks             database.DB
@@ -26,25 +26,41 @@ type meshDB struct {
 	lhMutex            sync.Mutex
 }
 
-func NewMeshDB(layers, blocks, validity database.DB, log log.Log) *meshDB {
-	ll := &meshDB{
+func NewMeshDB(path string, log log.Log) *MeshDB {
+	bdb := database.NewLevelDbStore(path+"blocks", nil, nil)
+	ldb := database.NewLevelDbStore(path+"layers", nil, nil)
+	vdb := database.NewLevelDbStore(path+"validity", nil, nil)
+	ll := &MeshDB{
 		Log:                log,
-		blocks:             blocks,
-		layers:             layers,
-		contextualValidity: validity,
+		blocks:             bdb,
+		layers:             ldb,
+		contextualValidity: vdb,
 		orphanBlocks:       make(map[LayerID]map[BlockID]struct{}),
 		layerMutex:         make(map[LayerID]*layerMutex),
 	}
 	return ll
 }
 
-func (m *meshDB) Close() {
+func NewMemMeshDB(log log.Log) *MeshDB {
+	db := database.NewMemDatabase()
+	ll := &MeshDB{
+		Log:                log,
+		blocks:             db,
+		layers:             db,
+		contextualValidity: db,
+		orphanBlocks:       make(map[LayerID]map[BlockID]struct{}),
+		layerMutex:         make(map[LayerID]*layerMutex),
+	}
+	return ll
+}
+
+func (m *MeshDB) Close() {
 	m.blocks.Close()
 	m.layers.Close()
 	m.contextualValidity.Close()
 }
 
-func (m *meshDB) getLayer(index LayerID) (*Layer, error) {
+func (m *MeshDB) getLayer(index LayerID) (*Layer, error) {
 	ids, err := m.layers.Get(index.ToBytes())
 	if err != nil {
 		return nil, fmt.Errorf("error getting layer %v from database ", index)
@@ -72,7 +88,7 @@ func (m *meshDB) getLayer(index LayerID) (*Layer, error) {
 
 // addBlock adds a new block to block DB and updates the correct layer with the new block
 // if this is the first occurence of the layer a new layer object will be inserted into layerDB as well
-func (m *meshDB) addBlock(block *Block) error {
+func (m *MeshDB) addBlock(block *Block) error {
 	_, err := m.blocks.Get(block.ID().ToBytes())
 	if err == nil {
 		log.Debug("block ", block.ID(), " already exists in database")
@@ -85,7 +101,7 @@ func (m *meshDB) addBlock(block *Block) error {
 	return nil
 }
 
-func (m *meshDB) getBlock(id BlockID) (*Block, error) {
+func (m *MeshDB) getBlock(id BlockID) (*Block, error) {
 	b, err := m.blocks.Get(id.ToBytes())
 	if err != nil {
 		return nil, errors.New("could not find block in database")
@@ -97,12 +113,12 @@ func (m *meshDB) getBlock(id BlockID) (*Block, error) {
 	return &blk, nil
 }
 
-func (m *meshDB) getContextualValidity(id BlockID) (bool, error) {
+func (m *MeshDB) getContextualValidity(id BlockID) (bool, error) {
 	b, err := m.contextualValidity.Get(id.ToBytes())
 	return b[0] == 1, err //bytes to bool
 }
 
-func (m *meshDB) setContextualValidity(id BlockID, valid bool) error {
+func (m *MeshDB) setContextualValidity(id BlockID, valid bool) error {
 	//todo implement
 	//todo concurrency
 	var v []byte
@@ -113,7 +129,7 @@ func (m *meshDB) setContextualValidity(id BlockID, valid bool) error {
 	return nil
 }
 
-func (m *meshDB) writeBlock(bl *Block) error {
+func (m *MeshDB) writeBlock(bl *Block) error {
 	bytes, err := BlockAsBytes(*bl)
 	if err != nil {
 		return fmt.Errorf("could not encode bl")
@@ -132,7 +148,7 @@ func (m *meshDB) writeBlock(bl *Block) error {
 }
 
 //todo this overwrites the previous value if it exists
-func (m *meshDB) addLayer(layer *Layer) error {
+func (m *MeshDB) addLayer(layer *Layer) error {
 	if len(layer.blocks) == 0 {
 		m.layers.Put(layer.Index().ToBytes(), []byte{})
 		return nil
@@ -146,7 +162,7 @@ func (m *meshDB) addLayer(layer *Layer) error {
 	return nil
 }
 
-func (m *meshDB) updateLayerWithBlock(block *Block) error {
+func (m *MeshDB) updateLayerWithBlock(block *Block) error {
 	lm := m.getLayerMutex(block.LayerIndex)
 	defer m.endLayerWorker(block.LayerIndex)
 	lm.m.Lock()
@@ -173,7 +189,7 @@ func (m *meshDB) updateLayerWithBlock(block *Block) error {
 	return nil
 }
 
-func (m *meshDB) getLayerBlocks(ids map[BlockID]bool) ([]*Block, error) {
+func (m *MeshDB) getLayerBlocks(ids map[BlockID]bool) ([]*Block, error) {
 
 	blocks := make([]*Block, 0, len(ids))
 	for k := range ids {
@@ -188,7 +204,7 @@ func (m *meshDB) getLayerBlocks(ids map[BlockID]bool) ([]*Block, error) {
 }
 
 //try delete layer Handler (deletes if pending pendingCount is 0)
-func (m *meshDB) endLayerWorker(index LayerID) {
+func (m *MeshDB) endLayerWorker(index LayerID) {
 	m.lhMutex.Lock()
 	defer m.lhMutex.Unlock()
 
@@ -204,7 +220,7 @@ func (m *meshDB) endLayerWorker(index LayerID) {
 }
 
 //returns the existing layer Handler (crates one if doesn't exist)
-func (m *meshDB) getLayerMutex(index LayerID) *layerMutex {
+func (m *MeshDB) getLayerMutex(index LayerID) *layerMutex {
 	m.lhMutex.Lock()
 	defer m.lhMutex.Unlock()
 	ll, found := m.layerMutex[index]
@@ -216,12 +232,8 @@ func (m *meshDB) getLayerMutex(index LayerID) *layerMutex {
 	return ll
 }
 
-type BlockCache interface {
-	Get(id BlockID) (*Block, error)
-}
-
 type MeshCache struct {
-	*meshDB
+	*MeshDB
 }
 
 func (mc MeshCache) Get(id BlockID) (*Block, error) {
@@ -232,7 +244,19 @@ func (mc MeshCache) Get(id BlockID) (*Block, error) {
 	return b, err
 }
 
-func ForBlockInView(view map[BlockID]struct{}, cache BlockCache, layer LayerID, foo func(block *Block), errHandler func(err error)) {
+func (mc MeshCache) Put(b *Block) error {
+	return mc.addBlock(b)
+}
+
+func (mc MeshCache) PutLayer(l *Layer) error {
+	return mc.addLayer(l)
+}
+
+func (mc MeshCache) GetLayer(l LayerID) (*Layer, error) {
+	return mc.getLayer(l)
+}
+
+func (mc MeshCache) ForBlockInView(view map[BlockID]struct{}, layer LayerID, foo func(block *Block), errHandler func(err error)) {
 	stack := list.New()
 	for b := range view {
 		stack.PushFront(b)
@@ -240,14 +264,14 @@ func ForBlockInView(view map[BlockID]struct{}, cache BlockCache, layer LayerID, 
 	set := make(map[BlockID]struct{})
 	for b := stack.Front(); b != nil; b = stack.Front() {
 		a := stack.Remove(stack.Front()).(BlockID)
-		block, err := cache.Get(a)
+		block, err := mc.Get(a)
 		if err != nil {
 			errHandler(err)
 		}
 		foo(block)
 		//push children to bfs queue
 		for _, id := range block.ViewEdges {
-			bChild, err := cache.Get(id)
+			bChild, err := mc.Get(id)
 			if err != nil {
 				errHandler(err)
 			}

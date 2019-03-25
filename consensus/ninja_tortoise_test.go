@@ -9,10 +9,25 @@ import (
 	"github.com/spacemeshos/go-spacemesh/rand"
 	"github.com/stretchr/testify/assert"
 	"math"
+	"os"
 	"runtime"
 	"testing"
 	"time"
 )
+
+const Path = "../tmp/tortoise/"
+
+func getPersistentMash() *mesh.MeshDB {
+	return mesh.NewMeshDB(fmt.Sprintf(Path+"ninje_tortoise/"), log.New("ninje_tortoise", "", ""))
+}
+
+func persistenceTeardown() {
+	os.RemoveAll(Path)
+}
+
+func getInMemMesh() *mesh.MeshDB {
+	return mesh.NewMemMeshDB(log.New("", "", ""))
+}
 
 func TestVec_Add(t *testing.T) {
 	v := vec{0, 0}
@@ -52,7 +67,10 @@ func TestNinjaTortoise_GlobalOpinion(t *testing.T) {
 
 func TestForEachInView(t *testing.T) {
 	blocks := make(map[mesh.BlockID]*mesh.Block)
-	alg := NewNinjaTortoise(2, log.New("TestForEachInView", "", ""))
+	mdb := mesh.NewMeshDB("TestForEachInView", log.New("TestForEachInView", "", ""))
+
+	defer mdb.Close()
+	alg := NewNinjaTortoise(2, mesh.MeshCache{MeshDB: mdb}, log.New("TestForEachInView", "", ""))
 	l := GenesisLayer()
 	for _, b := range l.Blocks() {
 		blocks[b.ID()] = b
@@ -112,51 +130,59 @@ func TestNinjaTortoise_S10P9(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
-	sanity(100, 10, 10, badblocks)
+	sanity(getInMemMesh(), 100, 10, 10, badblocks)
+	persistenceTeardown()
 }
 func TestNinjaTortoise_S50P49(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
-	sanity(100, 50, 50, badblocks)
+	sanity(getInMemMesh(), 100, 50, 50, badblocks)
+	persistenceTeardown()
 }
 func TestNinjaTortoise_S100P99(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
-	sanity(100, 100, 100, badblocks)
+	sanity(getInMemMesh(), 100, 100, 100, badblocks)
+	persistenceTeardown()
 }
 func TestNinjaTortoise_S10P7(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
-	sanity(100, 10, 7, badblocks)
+	sanity(getInMemMesh(), 100, 10, 7, badblocks)
+	persistenceTeardown()
 }
 func TestNinjaTortoise_S50P35(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
-	sanity(100, 50, 35, badblocks)
+	sanity(getInMemMesh(), 100, 50, 35, badblocks)
+	persistenceTeardown()
 }
 func TestNinjaTortoise_S100P70(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
-	sanity(100, 100, 70, badblocks)
+	sanity(getInMemMesh(), 100, 100, 70, badblocks)
+	persistenceTeardown()
 }
 
 func TestNinjaTortoise_S200P199(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
-	sanity(100, 200, 200, badblocks)
+	sanity(getInMemMesh(), 100, 200, 200, badblocks)
+	persistenceTeardown()
 }
 
 func TestNinjaTortoise_S200P140(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
-	sanity(100, 200, 140, badblocks)
+	sanity(getInMemMesh(), 100, 200, 140, badblocks)
+	persistenceTeardown()
 }
 
 //vote explicitly only for previous layer
@@ -165,24 +191,41 @@ func TestNinjaTortoise_Sanity1(t *testing.T) {
 	layerSize := 200
 	patternSize := 200
 	layers := 100
-	alg := sanity(layers, layerSize, patternSize, 0.2)
+	alg := sanity(getPersistentMash(), layers, layerSize, patternSize, 0.2)
 	res := vec{patternSize * (layers - 1), 0}
 	assert.True(t, alg.tTally[alg.pBase][config.GenesisId] == res, "lyr %d tally was %d insted of %d", layers, alg.tTally[alg.pBase][config.GenesisId], res)
 }
 
-func sanity(layers int, layerSize int, patternSize int, badBlks float64) *ninjaTortoise {
-	alg := NewNinjaTortoise(layerSize, log.New("TestNinjaTortoise_Sanity1", "", ""))
+func sanity(blocks *mesh.MeshDB, layers int, layerSize int, patternSize int, badBlks float64) *ninjaTortoise {
+	mc := mesh.MeshCache{MeshDB: blocks}
+	defer mc.Close()
+	alg := NewNinjaTortoise(layerSize, mc, log.New("tortoise_test", "", ""))
 	l1 := GenesisLayer()
+	mc.PutLayer(l1)
 	alg.handleIncomingLayer(l1)
 	l := createLayerWithRandVoting(l1.Index()+1, []*mesh.Layer{l1}, layerSize, 1)
+	mc.PutLayer(l)
 	alg.handleIncomingLayer(l)
+
 	for i := 0; i < layers-1; i++ {
 		lyr := createLayerWithCorruptedPattern(l.Index()+1, l, layerSize, patternSize, badBlks)
+		start := time.Now()
+		mc.PutLayer(lyr)
+		alg.Info("Time inserting layer into db: %v ", time.Since(start))
+		l = lyr
+	}
+
+	for i := 0; i < layers-1; i++ {
+		lyr, err := mc.GetLayer(mesh.LayerID(i))
+		if err != nil {
+			alg.Error("could not get layer ", err)
+		}
 		start := time.Now()
 		alg.handleIncomingLayer(lyr)
 		alg.Info("Time to process layer: %v ", time.Since(start))
 		l = lyr
 	}
+
 	fmt.Println(fmt.Sprintf("number of layers: %d layer size: %d good pattern size %d bad blocks %v", layers, layerSize, patternSize, badBlks))
 	PrintMemUsage()
 	return alg
@@ -191,7 +234,8 @@ func sanity(layers int, layerSize int, patternSize int, badBlks float64) *ninjaT
 //vote explicitly for two previous layers
 //correction vectors compensate for double count
 func TestNinjaTortoise_Sanity2(t *testing.T) {
-	alg := NewNinjaTortoise(3, log.New("TestNinjaTortoise_Sanity2", "", ""))
+	mdb := mesh.NewMeshDB("TestNinjaTortoise_Sanity2", log.New("TestNinjaTortoise_Sanity2", "", ""))
+	alg := NewNinjaTortoise(3, mesh.MeshCache{MeshDB: mdb}, log.New("TestNinjaTortoise_Sanity2", "", ""))
 	l := createMulExplicitLayer(0, map[mesh.LayerID]*mesh.Layer{}, nil, 1)
 	l1 := createMulExplicitLayer(1, map[mesh.LayerID]*mesh.Layer{l.Index(): l}, map[mesh.LayerID][]int{0: {0}}, 3)
 	l2 := createMulExplicitLayer(2, map[mesh.LayerID]*mesh.Layer{l1.Index(): l1}, map[mesh.LayerID][]int{1: {0, 1, 2}}, 3)

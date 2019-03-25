@@ -6,7 +6,6 @@ import (
 	"github.com/spacemeshos/go-spacemesh/address"
 	"github.com/spacemeshos/go-spacemesh/common"
 	"github.com/spacemeshos/go-spacemesh/crypto/sha3"
-	"github.com/spacemeshos/go-spacemesh/database"
 	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/go-spacemesh/rlp"
 	"math/big"
@@ -33,7 +32,7 @@ type StateUpdater interface {
 
 type Mesh struct {
 	log.Log
-	*meshDB
+	*MeshDB
 	rewardConfig  RewardConfig
 	verifiedLayer LayerID
 	latestLayer   LayerID
@@ -48,14 +47,42 @@ type Mesh struct {
 	done          chan struct{}
 }
 
-func NewMesh(layers, blocks, validity database.DB, rewardConfig RewardConfig, mesh MeshValidator, state StateUpdater, logger log.Log) *Mesh {
+func NewPersistentMesh(path string, rewardConfig RewardConfig, mesh MeshValidator, state StateUpdater, logger log.Log) *Mesh {
 	//todo add boot from disk
 	ll := &Mesh{
 		Log:          logger,
 		tortoise:     mesh,
 		state:        state,
 		done:         make(chan struct{}),
-		meshDB:       NewMeshDB(layers, blocks, validity, logger),
+		MeshDB:       NewMeshDB(path, logger),
+		rewardConfig: rewardConfig,
+	}
+
+	return ll
+}
+
+func NewMemMesh(rewardConfig RewardConfig, mesh MeshValidator, state StateUpdater, logger log.Log) *Mesh {
+	//todo add boot from disk
+	ll := &Mesh{
+		Log:          logger,
+		tortoise:     mesh,
+		state:        state,
+		done:         make(chan struct{}),
+		MeshDB:       NewMemMeshDB(logger),
+		rewardConfig: rewardConfig,
+	}
+
+	return ll
+}
+
+func NewMesh(db *MeshDB, rewardConfig RewardConfig, mesh MeshValidator, state StateUpdater, logger log.Log) *Mesh {
+	//todo add boot from disk
+	ll := &Mesh{
+		Log:          logger,
+		tortoise:     mesh,
+		state:        state,
+		done:         make(chan struct{}),
+		MeshDB:       db,
 		rewardConfig: rewardConfig,
 	}
 
@@ -253,7 +280,7 @@ func (m *Mesh) handleOrphanBlocks(block *Block) {
 }
 
 func (m *Mesh) GetUnverifiedLayerBlocks(l LayerID) ([]BlockID, error) {
-	x, err := m.meshDB.layers.Get(l.ToBytes())
+	x, err := m.MeshDB.layers.Get(l.ToBytes())
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("could not retrive layer = %d blocks ", l))
 	}
@@ -357,5 +384,5 @@ func (m *Mesh) GetContextualValidity(id BlockID) (bool, error) {
 
 func (m *Mesh) Close() {
 	m.Debug("closing mDB")
-	m.meshDB.Close()
+	m.MeshDB.Close()
 }
