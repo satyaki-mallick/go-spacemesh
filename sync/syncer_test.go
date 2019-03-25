@@ -76,6 +76,10 @@ func (mlg *MeshValidatorMock) ContextualValidity(id mesh.BlockID) bool   { retur
 
 type stateMock struct{}
 
+func (s *stateMock) ApplyRewards(layer mesh.LayerID, miners map[string]struct{}, underQuota map[string]struct{}, bonusReward, diminishedReward *big.Int) {
+
+}
+
 func (s *stateMock) ApplyTransactions(id mesh.LayerID, tx mesh.Transactions) (uint32, error) {
 	return 0, nil
 }
@@ -98,16 +102,6 @@ func getMeshWithLevelDB(id string) *mesh.Mesh {
 	//odb := database.NewLevelDbStore("orphans_test_"+id+"_"+time.String(), nil, nil)
 	layers := mesh.NewMesh(ldb, bdb, cv, ConfigTst(), &MeshValidatorMock{}, &stateMock{}, log.New(id, "", ""))
 	return layers
-}
-
-type MockState struct{}
-
-func (MockState) ApplyTransactions(layer mesh.LayerID, txs mesh.Transactions) (uint32, error) {
-	return 0, nil
-}
-
-func (s *stateMock) ApplyRewards(layer mesh.LayerID, miners map[string]struct{}, underQuota map[string]struct{}, bonusReward, diminishedReward *big.Int) {
-
 }
 
 func getMeshWithMemoryDB(id string) *mesh.Mesh {

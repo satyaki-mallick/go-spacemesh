@@ -2,6 +2,7 @@ package mesh
 
 import (
 	"bytes"
+	"container/list"
 	"errors"
 	"fmt"
 	"github.com/spacemeshos/go-spacemesh/database"
@@ -41,7 +42,6 @@ func (m *meshDB) Close() {
 	m.blocks.Close()
 	m.layers.Close()
 	m.contextualValidity.Close()
-
 }
 
 func (m *meshDB) getLayer(index LayerID) (*Layer, error) {
@@ -214,4 +214,50 @@ func (m *meshDB) getLayerMutex(index LayerID) *layerMutex {
 	}
 	ll.layerWorkers++
 	return ll
+}
+
+type BlockCache interface {
+	Get(id BlockID) (*Block, error)
+}
+
+type MeshCache struct {
+	*meshDB
+}
+
+func (mc MeshCache) Get(id BlockID) (*Block, error) {
+	b, err := mc.getBlock(id)
+	if b == nil && err == nil {
+		err = errors.New("could not find block in database")
+	}
+	return b, err
+}
+
+func ForBlockInView(view map[BlockID]struct{}, cache BlockCache, layer LayerID, foo func(block *Block), errHandler func(err error)) {
+	stack := list.New()
+	for b := range view {
+		stack.PushFront(b)
+	}
+	set := make(map[BlockID]struct{})
+	for b := stack.Front(); b != nil; b = stack.Front() {
+		a := stack.Remove(stack.Front()).(BlockID)
+		block, err := cache.Get(a)
+		if err != nil {
+			errHandler(err)
+		}
+		foo(block)
+		//push children to bfs queue
+		for _, id := range block.ViewEdges {
+			bChild, err := cache.Get(id)
+			if err != nil {
+				errHandler(err)
+			}
+			if bChild.Layer() >= layer { //dont traverse too deep
+				if _, found := set[bChild.ID()]; !found {
+					set[bChild.ID()] = struct{}{}
+					stack.PushBack(bChild.ID())
+				}
+			}
+		}
+	}
+	return
 }
