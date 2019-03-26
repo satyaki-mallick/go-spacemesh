@@ -1,9 +1,10 @@
 package mesh
 
 import (
-	"bytes"
+	"container/list"
 	"errors"
 	"fmt"
+	"github.com/spacemeshos/go-spacemesh/crypto"
 	"github.com/spacemeshos/go-spacemesh/database"
 	"github.com/spacemeshos/go-spacemesh/log"
 	"sync"
@@ -102,7 +103,7 @@ func (m *MeshDB) addBlock(block *Block) error {
 	return nil
 }
 
-func (m *meshDB) getBlockHeaderBytes(id BlockID) ([]byte, error) {
+func (m *MeshDB) getBlockHeaderBytes(id BlockID) ([]byte, error) {
 	b, err := m.blocks.Get(id.ToBytes())
 	if err != nil {
 		return nil, errors.New("could not find block in database")
@@ -110,8 +111,7 @@ func (m *meshDB) getBlockHeaderBytes(id BlockID) ([]byte, error) {
 	return b, nil
 }
 
-
-func (m *meshDB) getBlock(id BlockID) (*Block, error) {
+func (m *MeshDB) getBlock(id BlockID) (*Block, error) {
 
 	b, err := m.getBlockHeaderBytes(id)
 	if err != nil {
@@ -244,7 +244,7 @@ func (m *MeshDB) getLayerBlocks(ids map[BlockID]bool) ([]*Block, error) {
 }
 
 //try delete layer Handler (deletes if pending pendingCount is 0)
-func (m *meshDB) endLayerWorker(index LayerID) {
+func (m *MeshDB) endLayerWorker(index LayerID) {
 	m.lhMutex.Lock()
 	defer m.lhMutex.Unlock()
 
@@ -260,7 +260,7 @@ func (m *meshDB) endLayerWorker(index LayerID) {
 }
 
 //returns the existing layer Handler (crates one if doesn't exist)
-func (m *meshDB) getLayerMutex(index LayerID) *layerMutex {
+func (m *MeshDB) getLayerMutex(index LayerID) *layerMutex {
 	m.lhMutex.Lock()
 	defer m.lhMutex.Unlock()
 	ll, found := m.layerMutex[index]
@@ -272,7 +272,7 @@ func (m *meshDB) getLayerMutex(index LayerID) *layerMutex {
 	return ll
 }
 
-func (m *meshDB) writeTransactions(block *Block) error {
+func (m *MeshDB) writeTransactions(block *Block) error {
 
 	for _, t := range block.Txs {
 		bytes, err := TransactionAsBytes(t)
@@ -292,7 +292,7 @@ func (m *meshDB) writeTransactions(block *Block) error {
 	return nil
 }
 
-func (m *meshDB) getTransactions(transactions []TransactionId) ([]*SerializableTransaction, error) {
+func (m *MeshDB) getTransactions(transactions []TransactionId) ([]*SerializableTransaction, error) {
 	var ts []*SerializableTransaction
 	for _, id := range transactions {
 		tBytes, err := m.getTransactionBytes(id)
@@ -323,7 +323,7 @@ func getTransactionId(t *SerializableTransaction) TransactionId {
 	return crypto.Sha256(tx)
 }
 
-func (m *meshDB) getTransactionBytes(id []byte) ([]byte, error) {
+func (m *MeshDB) getTransactionBytes(id []byte) ([]byte, error) {
 	b, err := m.transactions.Get(id)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("could not find transaction in database %v", id))
