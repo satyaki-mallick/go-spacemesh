@@ -3,7 +3,6 @@ package mesh
 import (
 	"fmt"
 	"github.com/spacemeshos/go-spacemesh/crypto"
-	"github.com/spacemeshos/go-spacemesh/database"
 	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/go-spacemesh/rand"
 	"github.com/stretchr/testify/assert"
@@ -88,29 +87,21 @@ func TestForEachInView_InMem(t *testing.T) {
 	testForeachInView(mdb, t)
 }
 
-func TestForEachInView_GoCache(t *testing.T) {
-	db := database.NewMemCache()
-	mdb := &MeshDB{
-		Log:                log.New("TestForEachInView", "", ""),
-		blocks:             db,
-		layers:             db,
-		contextualValidity: db,
-		orphanBlocks:       make(map[LayerID]map[BlockID]struct{}),
-		layerMutex:         make(map[LayerID]*layerMutex),
-	}
-
-	testForeachInView(mdb, t)
-}
-
 func testForeachInView(mdb *MeshDB, t *testing.T) {
 	blocks := make(map[BlockID]*Block)
 	l := GenesisLayer()
-	mdb.addLayer(l)
+	gen := l.blocks[0]
+	blocks[gen.ID()] = gen
+
+	if err := mdb.AddBlock(gen); err != nil {
+		t.Fail()
+	}
+
 	for i := 0; i < 4; i++ {
 		lyr := createLayerWithRandVoting(l.Index()+1, []*Layer{l}, 2, 2)
 		for _, b := range lyr.Blocks() {
 			blocks[b.ID()] = b
-			mdb.addBlock(b)
+			mdb.AddBlock(b)
 		}
 		l = lyr
 	}
@@ -126,7 +117,7 @@ func testForeachInView(mdb *MeshDB, t *testing.T) {
 	for _, b := range l.Blocks() {
 		ids[b.Id] = struct{}{}
 	}
-	MeshCache{MeshDB: mdb}.ForBlockInView(ids, 0, foo, errHandler)
+	NewBlockCache(mdb).ForBlockInView(ids, 0, foo, errHandler)
 	for _, bl := range blocks {
 		_, found := mp[bl.ID()]
 		assert.True(t, found, "did not process block  ", bl)

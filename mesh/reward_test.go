@@ -2,7 +2,6 @@ package mesh
 
 import (
 	"github.com/spacemeshos/go-spacemesh/address"
-	"github.com/spacemeshos/go-spacemesh/database"
 	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/go-spacemesh/rand"
 	"github.com/stretchr/testify/assert"
@@ -181,7 +180,7 @@ func createLayer(mesh *Mesh, id LayerID, numOfBlocks, maxTransactions int) (tota
 		block1 := NewBlock(true, []byte("data1"), time.Now(), id)
 		block1.MinerID = strconv.Itoa(i)
 		totalRewards += addTransactionsToBlock(block1, rand.Intn(maxTransactions))
-		mesh.addBlock(block1)
+		mesh.AddBlock(block1)
 	}
 	return totalRewards
 }
@@ -206,9 +205,9 @@ func TestMesh_integration(t *testing.T) {
 	}
 
 	oldTotal := s.Total
-	l4, err := layers.getLayer(4)
+	l4, err := layers.GetLayer(4)
 	assert.NoError(t, err)
-	l5, err := layers.getLayer(5)
+	l5, err := layers.GetLayer(5)
 	assert.NoError(t, err)
 	//test negative case
 	layers.ValidateLayer(l4)

@@ -16,9 +16,29 @@ import (
 )
 
 const Path = "../tmp/tortoise/"
+const inmem = true
 
 func getPersistentMash() *mesh.MeshDB {
 	return mesh.NewPersistentMeshDB(fmt.Sprintf(Path+"ninje_tortoise/"), log.New("ninje_tortoise", "", ""))
+}
+
+type MapCache struct {
+	mp  map[mesh.BlockID]*mesh.Block
+	mdb *mesh.MeshDB
+}
+
+func getMapCache(mdb *mesh.MeshDB) MapCache {
+	mp := map[mesh.BlockID]*mesh.Block{}
+
+	return MapCache{mp, mdb}
+}
+
+func (mc MapCache) Get(id mesh.BlockID) (*mesh.Block, error) {
+	return nil, nil
+}
+
+func (mc MapCache) Close(id mesh.BlockID) (*mesh.Block, error) {
+	return nil, nil
 }
 
 func persistenceTeardown() {
@@ -27,6 +47,19 @@ func persistenceTeardown() {
 
 func getInMemMesh() *mesh.MeshDB {
 	return mesh.NewMemMeshDB(log.New("", "", ""))
+}
+
+func cacheFactory(mdb *mesh.MeshDB) BlockCache {
+	return mesh.NewBlockCache(mdb)
+}
+
+func getmeshForBench() *mesh.MeshDB {
+	if inmem {
+		return getInMemMesh()
+	} else {
+		return getPersistentMash()
+	}
+
 }
 
 func TestVec_Add(t *testing.T) {
@@ -70,7 +103,7 @@ func TestForEachInView(t *testing.T) {
 	mdb := mesh.NewPersistentMeshDB("TestForEachInView", log.New("TestForEachInView", "", ""))
 
 	defer mdb.Close()
-	alg := NewNinjaTortoise(2, mesh.MeshCache{MeshDB: mdb}, log.New("TestForEachInView", "", ""))
+	alg := NewNinjaTortoise(2, mesh.NewBlockCache(mdb), log.New("TestForEachInView", "", ""))
 	l := GenesisLayer()
 	for _, b := range l.Blocks() {
 		blocks[b.ID()] = b
@@ -106,9 +139,6 @@ func TestForEachInView(t *testing.T) {
 
 }
 
-func TestNinjaTortoise_UpdatePatternTally(t *testing.T) {
-}
-
 func bToMb(b uint64) uint64 {
 	return b / 1024 / 1024
 }
@@ -130,59 +160,60 @@ func TestNinjaTortoise_S10P9(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
-	sanity(getInMemMesh(), 100, 10, 10, badblocks)
-	persistenceTeardown()
+	defer persistenceTeardown()
+	mdb := getmeshForBench()
+	sanity(mdb, cacheFactory, 100, 10, 10, badblocks)
 }
 func TestNinjaTortoise_S50P49(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
-	sanity(getInMemMesh(), 100, 50, 50, badblocks)
-	persistenceTeardown()
+	defer persistenceTeardown()
+	sanity(getmeshForBench(), cacheFactory, 40, 50, 50, badblocks)
 }
 func TestNinjaTortoise_S100P99(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
-	sanity(getInMemMesh(), 100, 100, 100, badblocks)
-	persistenceTeardown()
+	defer persistenceTeardown()
+	sanity(getmeshForBench(), cacheFactory, 100, 100, 100, badblocks)
 }
 func TestNinjaTortoise_S10P7(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
-	sanity(getInMemMesh(), 100, 10, 7, badblocks)
-	persistenceTeardown()
+	defer persistenceTeardown()
+	sanity(getmeshForBench(), cacheFactory, 100, 10, 7, badblocks)
 }
 func TestNinjaTortoise_S50P35(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
-	sanity(getInMemMesh(), 100, 50, 35, badblocks)
-	persistenceTeardown()
+	defer persistenceTeardown()
+	sanity(getmeshForBench(), cacheFactory, 100, 50, 35, badblocks)
 }
 func TestNinjaTortoise_S100P70(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
-	sanity(getInMemMesh(), 100, 100, 70, badblocks)
-	persistenceTeardown()
+	defer persistenceTeardown()
+	sanity(getmeshForBench(), cacheFactory, 100, 100, 70, badblocks)
 }
 
 func TestNinjaTortoise_S200P199(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
-	sanity(getInMemMesh(), 100, 200, 200, badblocks)
-	persistenceTeardown()
+	defer persistenceTeardown()
+	sanity(getmeshForBench(), cacheFactory, 100, 200, 200, badblocks)
 }
 
 func TestNinjaTortoise_S200P140(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
-	sanity(getInMemMesh(), 100, 200, 140, badblocks)
-	persistenceTeardown()
+	defer persistenceTeardown()
+	sanity(getmeshForBench(), cacheFactory, 100, 200, 140, badblocks)
 }
 
 //vote explicitly only for previous layer
@@ -191,32 +222,32 @@ func TestNinjaTortoise_Sanity1(t *testing.T) {
 	layerSize := 200
 	patternSize := 200
 	layers := 100
-	alg := sanity(getPersistentMash(), layers, layerSize, patternSize, 0.2)
+	defer persistenceTeardown()
+	mdb := getPersistentMash()
+	alg := sanity(mdb, cacheFactory, layers, layerSize, patternSize, 0.2)
 	res := vec{patternSize * (layers - 1), 0}
 	assert.True(t, alg.tTally[alg.pBase][config.GenesisId] == res, "lyr %d tally was %d insted of %d", layers, alg.tTally[alg.pBase][config.GenesisId], res)
 }
 
-func sanity(blocks *mesh.MeshDB, layers int, layerSize int, patternSize int, badBlks float64) *ninjaTortoise {
-	mc := mesh.MeshCache{MeshDB: blocks}
-	defer mc.Close()
-	alg := NewNinjaTortoise(layerSize, mc, log.New("tortoise_test", "", ""))
+func sanity(mdb *mesh.MeshDB, bc func(mdb *mesh.MeshDB) BlockCache, layers int, layerSize int, patternSize int, badBlks float64) *ninjaTortoise {
+	lg := log.New("tortoise_test", "", "")
 	l1 := GenesisLayer()
-	mc.PutLayer(l1)
-	alg.handleIncomingLayer(l1)
+	mdb.AddLayer(l1)
 	l := createLayerWithRandVoting(l1.Index()+1, []*mesh.Layer{l1}, layerSize, 1)
-	mc.PutLayer(l)
-	alg.handleIncomingLayer(l)
+	mdb.AddLayer(l)
 
 	for i := 0; i < layers-1; i++ {
 		lyr := createLayerWithCorruptedPattern(l.Index()+1, l, layerSize, patternSize, badBlks)
 		start := time.Now()
-		mc.PutLayer(lyr)
-		alg.Info("Time inserting layer into db: %v ", time.Since(start))
+		mdb.AddLayer(lyr)
+		lg.Info("Time inserting layer into db: %v ", time.Since(start))
 		l = lyr
 	}
 
+	alg := NewNinjaTortoise(layerSize, bc(mdb), lg)
+
 	for i := 0; i < layers-1; i++ {
-		lyr, err := mc.GetLayer(mesh.LayerID(i))
+		lyr, err := mdb.GetLayer(mesh.LayerID(i))
 		if err != nil {
 			alg.Error("could not get layer ", err)
 		}
@@ -234,8 +265,9 @@ func sanity(blocks *mesh.MeshDB, layers int, layerSize int, patternSize int, bad
 //vote explicitly for two previous layers
 //correction vectors compensate for double count
 func TestNinjaTortoise_Sanity2(t *testing.T) {
+	defer persistenceTeardown()
 	mdb := mesh.NewPersistentMeshDB("TestNinjaTortoise_Sanity2", log.New("TestNinjaTortoise_Sanity2", "", ""))
-	alg := NewNinjaTortoise(3, mesh.MeshCache{MeshDB: mdb}, log.New("TestNinjaTortoise_Sanity2", "", ""))
+	alg := NewNinjaTortoise(3, mesh.NewBlockCache(mdb), log.New("TestNinjaTortoise_Sanity2", "", ""))
 	l := createMulExplicitLayer(0, map[mesh.LayerID]*mesh.Layer{}, nil, 1)
 	l1 := createMulExplicitLayer(1, map[mesh.LayerID]*mesh.Layer{l.Index(): l}, map[mesh.LayerID][]int{0: {0}}, 3)
 	l2 := createMulExplicitLayer(2, map[mesh.LayerID]*mesh.Layer{l1.Index(): l1}, map[mesh.LayerID][]int{1: {0, 1, 2}}, 3)

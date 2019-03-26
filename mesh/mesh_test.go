@@ -2,7 +2,7 @@ package mesh
 
 import (
 	"bytes"
-	"github.com/spacemeshos/go-spacemesh/database"
+	"fmt"
 	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/stretchr/testify/assert"
 	"math/big"

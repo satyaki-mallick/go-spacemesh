@@ -32,7 +32,7 @@ type StateUpdater interface {
 
 type Mesh struct {
 	log.Log
-	*MeshDB
+	mdb           *MeshDB
 	rewardConfig  RewardConfig
 	verifiedLayer LayerID
 	latestLayer   LayerID
@@ -54,7 +54,7 @@ func NewPersistentMesh(path string, rewardConfig RewardConfig, mesh MeshValidato
 		tortoise:     mesh,
 		state:        state,
 		done:         make(chan struct{}),
-		MeshDB:       NewPersistentMeshDB(path, logger),
+		mdb:          NewPersistentMeshDB(path, logger),
 		rewardConfig: rewardConfig,
 	}
 
@@ -68,7 +68,7 @@ func NewMemMesh(rewardConfig RewardConfig, mesh MeshValidator, state StateUpdate
 		tortoise:     mesh,
 		state:        state,
 		done:         make(chan struct{}),
-		MeshDB:       NewMemMeshDB(logger),
+		mdb:          NewMemMeshDB(logger),
 		rewardConfig: rewardConfig,
 	}
 
@@ -82,7 +82,7 @@ func NewMesh(db *MeshDB, rewardConfig RewardConfig, mesh MeshValidator, state St
 		tortoise:     mesh,
 		state:        state,
 		done:         make(chan struct{}),
-		MeshDB:       db,
+		mdb:          db,
 		rewardConfig: rewardConfig,
 	}
 
@@ -213,7 +213,7 @@ func (m *Mesh) ExtractUniqueOrderedTransactions(l *Layer) []*Transaction {
 func (m *Mesh) PushTransactions(oldBase LayerID, newBase LayerID) {
 	for i := oldBase; i < newBase; i++ {
 
-		l, err := m.getLayer(i)
+		l, err := m.mdb.GetLayer(i)
 		if err != nil || l == nil {
 			m.Error("") //todo handle error
 			return
@@ -237,16 +237,16 @@ func (m *Mesh) GetVerifiedLayer(i LayerID) (*Layer, error) {
 		return nil, errors.New("layer not verified yet")
 	}
 	m.lMutex.RUnlock()
-	return m.getLayer(i)
+	return m.mdb.GetLayer(i)
 }
 
 func (m *Mesh) GetLayer(i LayerID) (*Layer, error) {
-	return m.getLayer(i)
+	return m.mdb.GetLayer(i)
 }
 
 func (m *Mesh) AddBlock(block *Block) error {
 	m.Debug("add block %d", block.ID())
-	if err := m.addBlock(block); err != nil {
+	if err := m.mdb.AddBlock(block); err != nil {
 		m.Error("failed to add block %v  %v", block.ID(), err)
 		return err
 	}
@@ -261,18 +261,18 @@ func (m *Mesh) AddBlock(block *Block) error {
 func (m *Mesh) handleOrphanBlocks(block *Block) {
 	m.orphMutex.Lock()
 	defer m.orphMutex.Unlock()
-	if _, ok := m.orphanBlocks[block.Layer()]; !ok {
-		m.orphanBlocks[block.Layer()] = make(map[BlockID]struct{})
+	if _, ok := m.mdb.orphanBlocks[block.Layer()]; !ok {
+		m.mdb.orphanBlocks[block.Layer()] = make(map[BlockID]struct{})
 	}
-	m.orphanBlocks[block.Layer()][block.ID()] = struct{}{}
+	m.mdb.orphanBlocks[block.Layer()][block.ID()] = struct{}{}
 	m.Info("Added block %d to orphans", block.ID())
-	atomic.AddInt32(&m.orphanBlockCount, 1)
+	atomic.AddInt32(&m.mdb.orphanBlockCount, 1)
 	for _, b := range block.ViewEdges {
-		for _, layermap := range m.orphanBlocks {
+		for _, layermap := range m.mdb.orphanBlocks {
 			if _, has := layermap[b]; has {
 				m.Log.Debug("delete block ", b, "from orphans")
 				delete(layermap, b)
-				atomic.AddInt32(&m.orphanBlockCount, -1)
+				atomic.AddInt32(&m.mdb.orphanBlockCount, -1)
 				break
 			}
 		}
@@ -280,7 +280,7 @@ func (m *Mesh) handleOrphanBlocks(block *Block) {
 }
 
 func (m *Mesh) GetUnverifiedLayerBlocks(l LayerID) ([]BlockID, error) {
-	x, err := m.MeshDB.layers.Get(l.ToBytes())
+	x, err := m.mdb.layers.Get(l.ToBytes())
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("could not retrive layer = %d blocks ", l))
 	}
@@ -299,7 +299,7 @@ func (m *Mesh) GetOrphanBlocksBefore(l LayerID) ([]BlockID, error) {
 	m.orphMutex.RLock()
 	defer m.orphMutex.RUnlock()
 	ids := map[BlockID]struct{}{}
-	for key, val := range m.orphanBlocks {
+	for key, val := range m.mdb.orphanBlocks {
 		if key < l {
 			for bid := range val {
 				ids[bid] = struct{}{}
@@ -329,7 +329,7 @@ func (m *Mesh) GetOrphanBlocksBefore(l LayerID) ([]BlockID, error) {
 }
 
 func (m *Mesh) AccumulateRewards(rewardLayer LayerID, params RewardConfig) {
-	l, err := m.getLayer(rewardLayer)
+	l, err := m.mdb.GetLayer(rewardLayer)
 	if err != nil || l == nil {
 		m.Error("") //todo handle error
 		return
@@ -375,14 +375,14 @@ func (m *Mesh) AccumulateRewards(rewardLayer LayerID, params RewardConfig) {
 
 func (m *Mesh) GetBlock(id BlockID) (*Block, error) {
 	m.Debug("get block %d", id)
-	return m.getBlock(id)
+	return m.mdb.Get(id)
 }
 
 func (m *Mesh) GetContextualValidity(id BlockID) (bool, error) {
-	return m.getContextualValidity(id)
+	return m.mdb.getContextualValidity(id)
 }
 
 func (m *Mesh) Close() {
 	m.Debug("closing mDB")
-	m.MeshDB.Close()
+	m.mdb.Close()
 }

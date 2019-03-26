@@ -51,6 +51,7 @@ func NewMemMeshDB(log log.Log) *MeshDB {
 		blocks:             db,
 		layers:             db,
 		contextualValidity: db,
+		transactions:       db,
 		orphanBlocks:       make(map[LayerID]map[BlockID]struct{}),
 		layerMutex:         make(map[LayerID]*layerMutex),
 	}
@@ -60,11 +61,11 @@ func NewMemMeshDB(log log.Log) *MeshDB {
 func (m *MeshDB) Close() {
 	m.blocks.Close()
 	m.layers.Close()
-	m.contextualValidity.Close()
 	m.transactions.Close()
+	m.contextualValidity.Close()
 }
 
-func (m *MeshDB) getLayer(index LayerID) (*Layer, error) {
+func (m *MeshDB) GetLayer(index LayerID) (*Layer, error) {
 	ids, err := m.layers.Get(index.ToBytes())
 	if err != nil {
 		return nil, fmt.Errorf("error getting layer %v from database ", index)
@@ -90,28 +91,7 @@ func (m *MeshDB) getLayer(index LayerID) (*Layer, error) {
 	return l, nil
 }
 
-// addBlock adds a new block to block DB and updates the correct layer with the new block
-// if this is the first occurence of the layer a new layer object will be inserted into layerDB as well
-func (m *MeshDB) addBlock(block *Block) error {
-	if _, err := m.getBlockHeaderBytes(block.ID()); err == nil {
-		log.Debug("block ", block.ID(), " already exists in database")
-		return errors.New("block " + string(block.ID()) + " already exists in database")
-	}
-	if err := m.writeBlock(block); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (m *MeshDB) getBlockHeaderBytes(id BlockID) ([]byte, error) {
-	b, err := m.blocks.Get(id.ToBytes())
-	if err != nil {
-		return nil, errors.New("could not find block in database")
-	}
-	return b, nil
-}
-
-func (m *MeshDB) getBlock(id BlockID) (*Block, error) {
+func (m *MeshDB) Get(id BlockID) (*Block, error) {
 
 	b, err := m.getBlockHeaderBytes(id)
 	if err != nil {
@@ -133,6 +113,19 @@ func (m *MeshDB) getBlock(id BlockID) (*Block, error) {
 	return blockFromHeaderAndTxs(blk, transactions), nil
 }
 
+// AddBlock adds a new block to block DB and updates the correct layer with the new block
+// if this is the first occurence of the layer a new layer object will be inserted into layerDB as well
+func (m *MeshDB) AddBlock(block *Block) error {
+	if _, err := m.getBlockHeaderBytes(block.ID()); err == nil {
+		log.Debug("block ", block.ID(), " already exists in database")
+		return errors.New("block " + string(block.ID()) + " already exists in database")
+	}
+	if err := m.writeBlock(block); err != nil {
+		return err
+	}
+	return nil
+}
+
 func blockFromHeaderAndTxs(blk BlockHeader, transactions []*SerializableTransaction) *Block {
 	block := Block{
 		Id:         blk.Id,
@@ -146,6 +139,14 @@ func blockFromHeaderAndTxs(blk BlockHeader, transactions []*SerializableTransact
 		Txs:        transactions,
 	}
 	return &block
+}
+
+func (m *MeshDB) getBlockHeaderBytes(id BlockID) ([]byte, error) {
+	b, err := m.blocks.Get(id.ToBytes())
+	if err != nil {
+		return nil, errors.New("could not find block in database")
+	}
+	return b, nil
 }
 
 func (m *MeshDB) getContextualValidity(id BlockID) (bool, error) {
@@ -170,9 +171,6 @@ func (m *MeshDB) writeBlock(bl *Block) error {
 		return fmt.Errorf("could not encode bl")
 
 	}
-	if b, err := m.blocks.Get(bl.ID().ToBytes()); err == nil && b != nil {
-		return fmt.Errorf("bl %v already in database ", bl.ID())
-	}
 
 	if err := m.blocks.Put(bl.ID().ToBytes(), bytes); err != nil {
 		return fmt.Errorf("could not add bl to %v databacse %v", bl.ID(), err)
@@ -188,7 +186,7 @@ func (m *MeshDB) writeBlock(bl *Block) error {
 }
 
 //todo this overwrites the previous value if it exists
-func (m *MeshDB) addLayer(layer *Layer) error {
+func (m *MeshDB) AddLayer(layer *Layer) error {
 	if len(layer.blocks) == 0 {
 		m.layers.Put(layer.Index().ToBytes(), []byte{})
 		return nil
@@ -233,7 +231,7 @@ func (m *MeshDB) getLayerBlocks(ids map[BlockID]bool) ([]*Block, error) {
 
 	blocks := make([]*Block, 0, len(ids))
 	for k := range ids {
-		block, err := m.getBlock(k)
+		block, err := m.Get(k)
 		if err != nil {
 			return nil, errors.New("could not retrieve block " + fmt.Sprint(k) + " " + err.Error())
 		}
@@ -336,7 +334,7 @@ type MeshCache struct {
 }
 
 func (mc MeshCache) Get(id BlockID) (*Block, error) {
-	b, err := mc.getBlock(id)
+	b, err := mc.Get(id)
 	if b == nil && err == nil {
 		err = errors.New("could not find block in database")
 	}
@@ -344,15 +342,15 @@ func (mc MeshCache) Get(id BlockID) (*Block, error) {
 }
 
 func (mc MeshCache) Put(b *Block) error {
-	return mc.addBlock(b)
+	return mc.AddBlock(b)
 }
 
 func (mc MeshCache) PutLayer(l *Layer) error {
-	return mc.addLayer(l)
+	return mc.AddLayer(l)
 }
 
 func (mc MeshCache) GetLayer(l LayerID) (*Layer, error) {
-	return mc.getLayer(l)
+	return mc.GetLayer(l)
 }
 
 func (mc MeshCache) ForBlockInView(view map[BlockID]struct{}, layer LayerID, foo func(block *Block), errHandler func(err error)) {
