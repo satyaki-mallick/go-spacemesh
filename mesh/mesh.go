@@ -6,6 +6,7 @@ import (
 	"github.com/spacemeshos/go-spacemesh/address"
 	"github.com/spacemeshos/go-spacemesh/common"
 	"github.com/spacemeshos/go-spacemesh/crypto/sha3"
+	"github.com/spacemeshos/go-spacemesh/database"
 	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/go-spacemesh/rlp"
 	"math/big"
@@ -203,7 +204,7 @@ func (m *Mesh) ExtractUniqueOrderedTransactions(l *Layer) []*Transaction {
 		}
 		for _, tx := range b.Txs {
 			//todo: think about these conversions.. are they needed?
-			txs = append(txs, SerializableTransaction2StateTransaction(&tx))
+			txs = append(txs, SerializableTransaction2StateTransaction(tx))
 		}
 	}
 

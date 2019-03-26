@@ -369,7 +369,6 @@ func getPeersMock(peers []p2p.Peer) p2p.PeersImpl {
 func syncTest(dpType string, t *testing.T) {
 
 	syncs, nodes := SyncMockFactory(4, conf, "SyncMultipleNodes_", dpType)
-	defer persistenceTeardown()
 	syncObj1 := syncs[0]
 	defer syncObj1.Close()
 	syncObj2 := syncs[1]
