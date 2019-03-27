@@ -117,7 +117,7 @@ func testForeachInView(mdb *MeshDB, t *testing.T) {
 	for _, b := range l.Blocks() {
 		ids[b.Id] = struct{}{}
 	}
-	NewBlockCache(mdb).ForBlockInView(ids, 0, foo, errHandler)
+	mdb.ForBlockInView(ids, 0, foo, errHandler)
 	for _, bl := range blocks {
 		_, found := mp[bl.ID()]
 		assert.True(t, found, "did not process block  ", bl)

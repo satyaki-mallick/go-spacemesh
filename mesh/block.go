@@ -179,13 +179,13 @@ func BlockAsBytes(block Block) ([]byte, error) {
 	return w.Bytes(), nil
 }
 
-func BytesAsBlockHeader(buf []byte) (BlockHeader, error) {
+func BytesAsBlockHeader(buf []byte) (*BlockHeader, error) {
 	b := BlockHeader{}
 	_, err := xdr.Unmarshal(bytes.NewReader(buf), &b)
 	if err != nil {
-		return b, err
+		return &b, err
 	}
-	return b, nil
+	return &b, nil
 }
 
 func BytesAsBlock(buf []byte) (Block, error) {
