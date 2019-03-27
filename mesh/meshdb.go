@@ -35,7 +35,7 @@ func NewPersistentMeshDB(path string, log log.Log) *MeshDB {
 	tdb := database.NewLevelDbStore(path+"transactions", nil, nil)
 	ll := &MeshDB{
 		Log:                log,
-		bHeaderCache:       NewMapCache(),
+		bHeaderCache:       NewMapCache(100 * layerSize),
 		blocks:             bdb,
 		layers:             ldb,
 		transactions:       tdb,
@@ -50,7 +50,7 @@ func NewMemMeshDB(log log.Log) *MeshDB {
 	db := database.NewMemDatabase()
 	ll := &MeshDB{
 		Log:                log,
-		bHeaderCache:       NewMapCache(),
+		bHeaderCache:       NewMapCache(100 * layerSize),
 		blocks:             db,
 		layers:             db,
 		contextualValidity: db,
@@ -72,13 +72,13 @@ func (m *MeshDB) Get(id BlockID) (*Block, error) {
 
 	blk, err := m.GetBlockHeader(id)
 	if err != nil {
-		m.Error("some error 1")
+		m.Error("could not retrieve block %v header from database ", id)
 		return nil, err
 	}
 
 	transactions, err := m.getTransactions(blk.TxIds)
 	if err != nil {
-		m.Error("some error 2")
+		m.Error("could not retrieve block %v transactions from database ")
 		return nil, err
 	}
 
@@ -103,6 +103,8 @@ func (m *MeshDB) GetBlockHeader(id BlockID) (*BlockHeader, error) {
 	if blkh := m.bHeaderCache.Get(id); blkh != nil {
 		return blkh, nil
 	}
+
+	Miss++
 
 	b, err := m.getBlockHeaderBytes(id)
 	if err != nil {

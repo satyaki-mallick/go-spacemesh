@@ -17,7 +17,6 @@ import (
 
 const Path = "../tmp/tortoise/"
 
-const mapcahche = 0
 const inmem = 1
 const disc = 2
 
