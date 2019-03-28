@@ -244,7 +244,7 @@ func sanity(mdb *mesh.MeshDB, layers int, layerSize int, patternSize int, badBlk
 
 	alg := NewNinjaTortoise(layerSize, mdb, lg)
 
-	for i := 0; i < layers; i++ {
+	for i := 0; i <= layers; i++ {
 		lyr, err := mdb.GetLayer(mesh.LayerID(i))
 		if err != nil {
 			alg.Error("could not get layer ", err)
@@ -271,6 +271,12 @@ func TestNinjaTortoise_Sanity2(t *testing.T) {
 	l2 := createMulExplicitLayer(2, map[mesh.LayerID]*mesh.Layer{l1.Index(): l1}, map[mesh.LayerID][]int{1: {0, 1, 2}}, 3)
 	l3 := createMulExplicitLayer(3, map[mesh.LayerID]*mesh.Layer{l2.Index(): l2}, map[mesh.LayerID][]int{l2.Index(): {0}}, 3)
 	l4 := createMulExplicitLayer(4, map[mesh.LayerID]*mesh.Layer{l2.Index(): l2, l3.Index(): l3}, map[mesh.LayerID][]int{l2.Index(): {1, 2}, l3.Index(): {1, 2}}, 4)
+
+	mdb.AddLayer(l)
+	mdb.AddLayer(l1)
+	mdb.AddLayer(l2)
+	mdb.AddLayer(l3)
+	mdb.AddLayer(l4)
 
 	alg.handleIncomingLayer(l)
 	alg.handleIncomingLayer(l1)

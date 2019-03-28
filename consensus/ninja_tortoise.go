@@ -118,8 +118,9 @@ func (ni *ninjaTortoise) processBlock(b *mesh.Block) {
 	for _, bid := range b.BlockVotes {
 		ni.Debug("block votes %d", bid)
 		bl, err := ni.GetBlock(bid)
-		if err != nil {
-			ni.Error(fmt.Sprintf("error block not found ID %d", bid))
+		if err != nil || bl == nil {
+			ni.Error(fmt.Sprintf("error block not found ID %d !!!!!", bid))
+			return
 		}
 		if _, found := patternMap[bl.Layer()]; !found {
 			patternMap[bl.Layer()] = map[mesh.BlockID]struct{}{}
