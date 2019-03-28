@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/spacemeshos/go-spacemesh/config"
 	"github.com/spacemeshos/go-spacemesh/crypto"
 	"github.com/spacemeshos/go-spacemesh/log"
@@ -22,6 +23,22 @@ const disc = 2
 
 const memType = inmem
 
+func NewTestBlock(coin bool, data []byte, ts time.Time, LayerID mesh.LayerID) *mesh.Block {
+	b := mesh.Block{
+		BlockHeader: mesh.BlockHeader{Id: mesh.BlockID(uuid.New().ID()),
+			LayerIndex: LayerID,
+			BlockVotes: make([]mesh.BlockID, 0, 10),
+			ViewEdges:  make([]mesh.BlockID, 0, 10),
+			Timestamp:  ts.UnixNano(),
+			Data:       data,
+			Coin:       coin,
+		},
+
+		Txs: make([]*mesh.SerializableTransaction, 0, 10),
+	}
+	return &b
+}
+
 func getPersistentMash() *mesh.MeshDB {
 	return mesh.NewPersistentMeshDB(fmt.Sprintf(Path+"ninje_tortoise/"), log.New("ninje_tortoise", "", ""))
 }
@@ -32,10 +49,6 @@ func persistenceTeardown() {
 
 func getInMemMesh() *mesh.MeshDB {
 	return mesh.NewMemMeshDB(log.New("", "", ""))
-}
-
-func cacheFactory(mdb *mesh.MeshDB) BlockCache {
-	return mdb
 }
 
 func getMeshForBench() *mesh.MeshDB {
@@ -90,7 +103,7 @@ func TestForEachInView(t *testing.T) {
 
 	defer mdb.Close()
 	alg := NewNinjaTortoise(2, mdb, log.New("TestForEachInView", "", ""))
-	l := GenesisLayer()
+	l := mesh.GenesisLayer()
 	for _, b := range l.Blocks() {
 		blocks[b.ID()] = b
 	}
@@ -217,7 +230,7 @@ func TestNinjaTortoise_Sanity1(t *testing.T) {
 
 func sanity(mdb *mesh.MeshDB, layers int, layerSize int, patternSize int, badBlks float64) *ninjaTortoise {
 	lg := log.New("tortoise_test", "", "")
-	l1 := GenesisLayer()
+	l1 := mesh.GenesisLayer()
 	mdb.AddLayer(l1)
 	l := createLayerWithRandVoting(l1.Index()+1, []*mesh.Layer{l1}, layerSize, 1)
 	mdb.AddLayer(l)
@@ -279,7 +292,7 @@ func createMulExplicitLayer(index mesh.LayerID, prev map[mesh.LayerID]*mesh.Laye
 	l := mesh.NewLayer(index)
 	layerBlocks := make([]mesh.BlockID, 0, blocksInLayer)
 	for i := 0; i < blocksInLayer; i++ {
-		bl := mesh.NewBlock(coin, data, ts, 1)
+		bl := NewTestBlock(coin, data, ts, 1)
 		layerBlocks = append(layerBlocks, bl.ID())
 
 		for lyrId, pat := range patterns {
@@ -315,12 +328,12 @@ func createLayerWithCorruptedPattern(index mesh.LayerID, prev *mesh.Layer, block
 	gbs := int(float64(blocksInLayer) * (1 - badBlocks))
 	layerBlocks := make([]mesh.BlockID, 0, blocksInLayer)
 	for i := 0; i < gbs; i++ {
-		bl := addPattern(mesh.NewBlock(coin, data, ts, 1), goodPattern, prev)
+		bl := addPattern(NewTestBlock(coin, data, ts, 1), goodPattern, prev)
 		layerBlocks = append(layerBlocks, bl.ID())
 		l.AddBlock(bl)
 	}
 	for i := 0; i < blocksInLayer-gbs; i++ {
-		bl := addPattern(mesh.NewBlock(coin, data, ts, 1), badPattern, prev)
+		bl := addPattern(NewTestBlock(coin, data, ts, 1), badPattern, prev)
 		layerBlocks = append(layerBlocks, bl.ID())
 		l.AddBlock(bl)
 	}
@@ -354,7 +367,7 @@ func createLayerWithRandVoting(index mesh.LayerID, prev []*mesh.Layer, blocksInL
 	}
 	layerBlocks := make([]mesh.BlockID, 0, blocksInLayer)
 	for i := 0; i < blocksInLayer; i++ {
-		bl := mesh.NewBlock(coin, data, ts, 1)
+		bl := NewTestBlock(coin, data, ts, 1)
 		layerBlocks = append(layerBlocks, bl.ID())
 		for idx, pat := range patterns {
 			for _, id := range pat {

@@ -1,51 +1,38 @@
 package mesh
 
 import (
-	"container/list"
-	"sync"
+	"github.com/hashicorp/golang-lru"
+	"github.com/prometheus/common/log"
 )
 
 type blockCache interface {
-	Get(id BlockID) *BlockHeader
-	put(b *BlockHeader)
+	Get(id BlockID) *MiniBlock
+	put(b *MiniBlock)
 	Close()
 }
 
-type MapCache struct {
+type BlockCache struct {
 	blockCache
-	mp        map[BlockID]BlockHeader
-	mutex     sync.RWMutex
-	itemQueue *list.List
-	cacheSize int
+	*lru.Cache
 }
 
-func NewMapCache(size int) MapCache {
-	return MapCache{mp: map[BlockID]BlockHeader{}, itemQueue: list.New(), cacheSize: size}
-}
-
-func (mc MapCache) put(b *BlockHeader) {
-	mc.mutex.Lock()
-	defer mc.mutex.Unlock()
-	if mc.itemQueue.Len() >= mc.cacheSize {
-		mc.evict()
+func NewBlockCache(size int) BlockCache {
+	cache, err := lru.New(size)
+	if err != nil {
+		log.Fatal("could not initialize cache ", err)
 	}
-	mc.mp[b.Id] = *b
-	mc.itemQueue.PushBack(b.Id)
+	return BlockCache{Cache: cache}
 }
 
-func (mc MapCache) evict() {
-	if elem := mc.itemQueue.Front(); elem != nil {
-		mc.itemQueue.Remove(elem)
-		delete(mc.mp, elem.Value.(BlockID))
-	}
-
+func (bc BlockCache) put(b *MiniBlock) {
+	bc.Cache.Add(b.Id, *b)
 }
 
-func (mc MapCache) Get(id BlockID) *BlockHeader {
-	mc.mutex.RLock()
-	defer mc.mutex.RUnlock()
-	if b, found := mc.mp[id]; found {
-		return &b
+func (bc BlockCache) Get(id BlockID) *MiniBlock {
+	item, found := bc.Cache.Get(id)
+	if !found {
+		return nil
 	}
-	return nil
+	blk := item.(MiniBlock)
+	return &blk
 }

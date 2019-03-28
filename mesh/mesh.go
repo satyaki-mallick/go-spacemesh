@@ -14,7 +14,11 @@ import (
 	"sync/atomic"
 )
 
-const layerSize = 200
+const (
+	layerSize = 200
+	Genesis   = 0
+	GenesisId = 420
+)
 
 var TRUE = []byte{1}
 var FALSE = []byte{0}
@@ -385,4 +389,19 @@ func (m *Mesh) GetContextualValidity(id BlockID) (bool, error) {
 func (m *Mesh) Close() {
 	m.Debug("closing mDB")
 	m.mdb.Close()
+}
+
+func CreateGenesisBlock() *Block {
+	bl := &Block{
+		BlockHeader: BlockHeader{Id: BlockID(GenesisId),
+			LayerIndex: 0,
+			Data:       []byte("genesis")},
+	}
+	return bl
+}
+
+func GenesisLayer() *Layer {
+	l := NewLayer(Genesis)
+	l.AddBlock(CreateGenesisBlock())
+	return l
 }

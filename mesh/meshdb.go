@@ -35,7 +35,7 @@ func NewPersistentMeshDB(path string, log log.Log) *MeshDB {
 	tdb := database.NewLevelDbStore(path+"transactions", nil, nil)
 	ll := &MeshDB{
 		Log:                log,
-		bHeaderCache:       NewMapCache(100 * layerSize),
+		bHeaderCache:       NewBlockCache(100 * layerSize),
 		blocks:             bdb,
 		layers:             ldb,
 		transactions:       tdb,
@@ -50,7 +50,7 @@ func NewMemMeshDB(log log.Log) *MeshDB {
 	db := database.NewMemDatabase()
 	ll := &MeshDB{
 		Log:                log,
-		bHeaderCache:       NewMapCache(100 * layerSize),
+		bHeaderCache:       NewBlockCache(100 * layerSize),
 		blocks:             db,
 		layers:             db,
 		contextualValidity: db,
@@ -82,7 +82,7 @@ func (m *MeshDB) Get(id BlockID) (*Block, error) {
 		return nil, err
 	}
 
-	return blockFromHeaderAndTxs(blk, transactions), nil
+	return blockFromMiniAndTxs(blk, transactions), nil
 }
 
 // AddBlock adds a new block to block DB and updates the correct layer with the new block
@@ -98,13 +98,11 @@ func (m *MeshDB) AddBlock(block *Block) error {
 	return nil
 }
 
-func (m *MeshDB) GetBlockHeader(id BlockID) (*BlockHeader, error) {
+func (m *MeshDB) GetBlockHeader(id BlockID) (*MiniBlock, error) {
 
 	if blkh := m.bHeaderCache.Get(id); blkh != nil {
 		return blkh, nil
 	}
-
-	Miss++
 
 	b, err := m.getBlockHeaderBytes(id)
 	if err != nil {
@@ -184,17 +182,18 @@ func (mc *MeshDB) ForBlockInView(view map[BlockID]struct{}, layer LayerID, foo f
 	return
 }
 
-func blockFromHeaderAndTxs(blk *BlockHeader, transactions []*SerializableTransaction) *Block {
+func blockFromMiniAndTxs(blk *MiniBlock, transactions []*SerializableTransaction) *Block {
 	block := Block{
-		Id:         blk.Id,
-		LayerIndex: blk.LayerIndex,
-		MinerID:    blk.MinerID,
-		Data:       blk.Data,
-		Coin:       blk.Coin,
-		Timestamp:  blk.Timestamp,
-		BlockVotes: blk.BlockVotes,
-		ViewEdges:  blk.ViewEdges,
-		Txs:        transactions,
+		BlockHeader: BlockHeader{
+			Id:         blk.Id,
+			LayerIndex: blk.LayerIndex,
+			MinerID:    blk.MinerID,
+			Data:       blk.Data,
+			Coin:       blk.Coin,
+			Timestamp:  blk.Timestamp,
+			BlockVotes: blk.BlockVotes,
+			ViewEdges:  blk.ViewEdges},
+		Txs: transactions,
 	}
 	return &block
 }
@@ -224,7 +223,7 @@ func (m *MeshDB) setContextualValidity(id BlockID, valid bool) error {
 }
 
 func (m *MeshDB) writeBlock(bl *Block) error {
-	blkh := newBlockHeader(bl)
+	blkh := newMiniBlock(bl)
 	m.bHeaderCache.put(blkh)
 	bytes, err := getBlockHeaderBytes(blkh)
 	if err != nil {

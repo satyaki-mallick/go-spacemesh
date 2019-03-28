@@ -13,25 +13,11 @@ import (
 )
 
 const (
-	GenesisIdx = 0
-	GenesisId  = 420
-	Path       = "../tmp/sync/"
+	Path = "../tmp/sync/"
 )
 
 func teardown() {
 	os.RemoveAll(Path)
-}
-
-func GenesisLayer() *Layer {
-	l := NewLayer(GenesisIdx)
-	bl := &Block{
-		Id:         BlockID(GenesisId),
-		LayerIndex: 0,
-		Data:       []byte("genesis"),
-	}
-
-	l.AddBlock(bl)
-	return l
 }
 
 func chooseRandomPattern(blocksInLayer int, patternSize int) []int {
@@ -46,7 +32,6 @@ func chooseRandomPattern(blocksInLayer int, patternSize int) []int {
 
 func createLayerWithRandVoting(index LayerID, prev []*Layer, blocksInLayer int, patternSize int) *Layer {
 	ts := time.Now()
-	coin := false
 	// just some random Data
 	data := []byte(crypto.UUIDString())
 	l := NewLayer(index)
@@ -58,7 +43,7 @@ func createLayerWithRandVoting(index LayerID, prev []*Layer, blocksInLayer int, 
 	}
 	layerBlocks := make([]BlockID, 0, blocksInLayer)
 	for i := 0; i < blocksInLayer; i++ {
-		bl := NewBlock(coin, data, ts, 1)
+		bl := NewTestBlock(data, ts, 1)
 		layerBlocks = append(layerBlocks, bl.ID())
 		for idx, pat := range patterns {
 			for _, id := range pat {

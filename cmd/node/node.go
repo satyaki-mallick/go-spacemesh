@@ -238,7 +238,7 @@ func (app *SpacemeshApp) setupGenesis(cfg *apiCfg.GenesisConfig) {
 		app.state.SetNonce(id, acc.Nonce)
 	}
 
-	genesis := consensus.CreateGenesisBlock()
+	genesis := mesh.CreateGenesisBlock()
 	app.state.Commit(false)
 	app.mesh.AddBlock(genesis)
 }
