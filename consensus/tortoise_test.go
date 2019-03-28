@@ -1,7 +1,7 @@
 package consensus
 
 import (
-	"github.com/spacemeshos/go-spacemesh/crypto"
+	"github.com/google/uuid"
 	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/go-spacemesh/mesh"
 	"testing"
@@ -26,14 +26,9 @@ func TestAlgorithm_Sanity(t *testing.T) {
 }
 
 func createFullPointingLayer(prev *mesh.Layer, blocksInLayer int) *mesh.Layer {
-	ts := time.Now()
-	coin := false
-	// just some random Data
-	data := []byte(crypto.UUIDString())
 	l := mesh.NewLayer(prev.Index() + 1)
 	for i := 0; i < blocksInLayer; i++ {
-		bl := NewTestBlock(coin, data, ts, 1)
-
+		bl := mesh.NewExistingBlock(mesh.BlockID(uuid.New().ID()), l.Index(), []byte("data1"))
 		for _, prevBloc := range prev.Blocks() {
 			bl.AddVote(mesh.BlockID(prevBloc.Id))
 		}

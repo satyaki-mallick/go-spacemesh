@@ -207,7 +207,7 @@ func (m *MeshDB) layerBlockIds(index LayerID) (map[BlockID]bool, error) {
 	return idSet, nil
 }
 
-func blockFromMiniAndTxs(blk *MiniBlock, transactions []*SerializableTransaction) *Block {
+func blockFromMiniAndTxs(blk *MiniBlock, transactions []SerializableTransaction) *Block {
 	block := Block{
 		BlockHeader: BlockHeader{
 			Id:         blk.Id,
@@ -358,13 +358,13 @@ func (m *MeshDB) writeTransactions(block *Block) error {
 	return nil
 }
 
-func (m *MeshDB) getTransactions(transactions []TransactionId) ([]*SerializableTransaction, error) {
-	var ts []*SerializableTransaction
+func (m *MeshDB) getTransactions(transactions []TransactionId) ([]SerializableTransaction, error) {
+	var ts []SerializableTransaction
 	for _, id := range transactions {
 		tBytes, err := m.getTransactionBytes(id)
 
 		if err != nil {
-			m.Error("error retrieving transaction from database ", err)
+			m.Error("error retrieving transaction from database %v", err)
 		}
 
 		t, err := BytesAsTransaction(tBytes)
@@ -372,7 +372,7 @@ func (m *MeshDB) getTransactions(transactions []TransactionId) ([]*SerializableT
 		if err != nil {
 			m.Error("error deserializing transaction")
 		}
-		ts = append(ts, t)
+		ts = append(ts, *t)
 	}
 
 	return ts, nil
@@ -380,7 +380,7 @@ func (m *MeshDB) getTransactions(transactions []TransactionId) ([]*SerializableT
 
 //todo standardized transaction id across project
 //todo replace panic
-func getTransactionId(t *SerializableTransaction) TransactionId {
+func getTransactionId(t SerializableTransaction) TransactionId {
 	tx, err := TransactionAsBytes(t)
 	if err != nil {
 		panic("could not Serialize transaction")

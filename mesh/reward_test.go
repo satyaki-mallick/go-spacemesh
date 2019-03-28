@@ -1,6 +1,7 @@
 package mesh
 
 import (
+	"github.com/google/uuid"
 	"github.com/spacemeshos/go-spacemesh/address"
 	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/go-spacemesh/rand"
@@ -8,7 +9,6 @@ import (
 	"math/big"
 	"strconv"
 	"testing"
-	"time"
 )
 
 type MockMapState struct {
@@ -53,7 +53,7 @@ func addTransactionsToBlock(bl *Block, numOfTxs int) int64 {
 		gasPrice := rand.Int63n(100)
 		addr := rand.Int63n(1000000)
 		//log.Info("adding tx with gas price %v nonce %v", gasPrice, i)
-		bl.Txs = append(bl.Txs, NewSerializableTransaction(uint64(i), address.HexToAddress("1"),
+		bl.Txs = append(bl.Txs, *NewSerializableTransaction(uint64(i), address.HexToAddress("1"),
 			address.HexToAddress(strconv.FormatUint(uint64(addr), 10)),
 			big.NewInt(10),
 			big.NewInt(gasPrice),
@@ -69,7 +69,7 @@ func addTransactionsWithGas(bl *Block, numOfTxs int, gasPrice int64) int64 {
 
 		addr := rand.Int63n(10000)
 		//log.Info("adding tx with gas price %v nonce %v", gasPrice, i)
-		bl.Txs = append(bl.Txs, NewSerializableTransaction(uint64(i), address.HexToAddress("1"),
+		bl.Txs = append(bl.Txs, *NewSerializableTransaction(uint64(i), address.HexToAddress("1"),
 			address.HexToAddress(strconv.FormatUint(uint64(addr), 10)),
 			big.NewInt(10),
 			big.NewInt(gasPrice),
@@ -85,20 +85,19 @@ func TestMesh_AccumulateRewards_happyFlow(t *testing.T) {
 	defer layers.Close()
 
 	var totalRewards int64
-
-	block1 := NewTestBlock([]byte("data1"), time.Now(), 1)
+	block1 := NewExistingBlock(BlockID(uuid.New().ID()), 1, []byte("data1"))
 	block1.MinerID = "1"
 	totalRewards += addTransactionsToBlock(block1, 15)
 
-	block2 := NewTestBlock([]byte("data2"), time.Now(), 1)
+	block2 := NewExistingBlock(BlockID(uuid.New().ID()), 1, []byte("data2"))
 	block2.MinerID = "2"
 	totalRewards += addTransactionsToBlock(block2, 13)
 
-	block3 := NewTestBlock([]byte("data3"), time.Now(), 1)
+	block3 := NewExistingBlock(BlockID(uuid.New().ID()), 1, []byte("data3"))
 	block3.MinerID = "3"
 	totalRewards += addTransactionsToBlock(block3, 17)
 
-	block4 := NewTestBlock([]byte("data3"), time.Now(), 1)
+	block4 := NewExistingBlock(BlockID(uuid.New().ID()), 1, []byte("data4"))
 	block4.MinerID = "4"
 	totalRewards += addTransactionsToBlock(block4, 16)
 
@@ -141,19 +140,19 @@ func TestMesh_AccumulateRewards_underQuota(t *testing.T) {
 
 	var totalRewards int64
 
-	block1 := NewTestBlock([]byte("data1"), time.Now(), 1)
+	block1 := NewExistingBlock(BlockID(uuid.New().ID()), 1, []byte("data1"))
 	block1.MinerID = "1"
 	totalRewards += addTransactionsWithGas(block1, 10, 8)
 
-	block2 := NewTestBlock([]byte("data2"), time.Now(), 1)
+	block2 := NewExistingBlock(BlockID(uuid.New().ID()), 1, []byte("data2"))
 	block2.MinerID = "2"
 	totalRewards += addTransactionsWithGas(block2, 10, 9)
 
-	block3 := NewTestBlock([]byte("data3"), time.Now(), 1)
+	block3 := NewExistingBlock(BlockID(uuid.New().ID()), 1, []byte("data3"))
 	block3.MinerID = "3"
 	totalRewards += addTransactionsWithGas(block3, 17, 10)
 
-	block4 := NewTestBlock([]byte("data3"), time.Now(), 1)
+	block4 := NewExistingBlock(BlockID(uuid.New().ID()), 1, []byte("data4"))
 	block4.MinerID = "4"
 	totalRewards += addTransactionsWithGas(block4, 16, 11)
 
@@ -177,7 +176,7 @@ func TestMesh_AccumulateRewards_underQuota(t *testing.T) {
 
 func createLayer(mesh *Mesh, id LayerID, numOfBlocks, maxTransactions int) (totalRewards int64) {
 	for i := 0; i < numOfBlocks; i++ {
-		block1 := NewTestBlock([]byte("data1"), time.Now(), id)
+		block1 := NewExistingBlock(BlockID(uuid.New().ID()), id, []byte("data1"))
 		block1.MinerID = strconv.Itoa(i)
 		totalRewards += addTransactionsToBlock(block1, rand.Intn(maxTransactions))
 		mesh.AddBlock(block1)

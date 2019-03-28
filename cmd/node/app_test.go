@@ -78,7 +78,7 @@ func (app *AppTestSuite) TestMultipleNodes() {
 	tx.Recipient = &dst
 	tx.Price = big.NewInt(1).Bytes()
 
-	txbytes, _ := mesh.TransactionAsBytes(&tx)
+	txbytes, _ := mesh.TransactionAsBytes(tx)
 	path := "../tmp/test/state_" + time.Now().String()
 	app.initMultipleInstances(app.T(), 10, path)
 	for _, a := range app.apps {

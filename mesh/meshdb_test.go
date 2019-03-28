@@ -2,7 +2,7 @@ package mesh
 
 import (
 	"fmt"
-	"github.com/spacemeshos/go-spacemesh/crypto"
+	"github.com/google/uuid"
 	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/go-spacemesh/rand"
 	"github.com/stretchr/testify/assert"
@@ -31,9 +31,6 @@ func chooseRandomPattern(blocksInLayer int, patternSize int) []int {
 }
 
 func createLayerWithRandVoting(index LayerID, prev []*Layer, blocksInLayer int, patternSize int) *Layer {
-	ts := time.Now()
-	// just some random Data
-	data := []byte(crypto.UUIDString())
 	l := NewLayer(index)
 	var patterns [][]int
 	for _, l := range prev {
@@ -43,7 +40,7 @@ func createLayerWithRandVoting(index LayerID, prev []*Layer, blocksInLayer int, 
 	}
 	layerBlocks := make([]BlockID, 0, blocksInLayer)
 	for i := 0; i < blocksInLayer; i++ {
-		bl := NewTestBlock(data, ts, 1)
+		bl := NewExistingBlock(BlockID(uuid.New().ID()), 0, []byte("data data data"))
 		layerBlocks = append(layerBlocks, bl.ID())
 		for idx, pat := range patterns {
 			for _, id := range pat {

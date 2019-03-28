@@ -315,7 +315,7 @@ func TestJsonWalletApi(t *testing.T) {
 	tx.GasLimit = 10
 	tx.Price = big.NewInt(10).Bytes()
 
-	val, err := mesh.TransactionAsBytes(&tx)
+	val, err := mesh.TransactionAsBytes(tx)
 
 	assert.Equal(t, val, net.broadcasted)
 

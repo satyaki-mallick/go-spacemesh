@@ -13,22 +13,6 @@ import (
 
 type MeshValidatorMock struct{}
 
-func NewTestBlock(coin bool, data []byte, ts time.Time, LayerID LayerID) *Block {
-	b := Block{
-		BlockHeader: BlockHeader{Id: BlockID(uuid.New().ID()),
-			LayerIndex: LayerID,
-			BlockVotes: make([]BlockID, 0, 10),
-			ViewEdges:  make([]BlockID, 0, 10),
-			Timestamp:  ts.UnixNano(),
-			Data:       data,
-			Coin:       coin,
-		},
-
-		Txs: make([]*SerializableTransaction, 0, 10),
-	}
-	return &b
-}
-
 func (m *MeshValidatorMock) HandleIncomingLayer(layer *Layer) (LayerID, LayerID) {
 	return layer.Index() - 1, layer.Index()
 }
@@ -56,9 +40,9 @@ func TestLayers_AddBlock(t *testing.T) {
 	layers := getMesh("t1")
 	defer layers.Close()
 
-	block1 := NewTestBlock(true, []byte("data1"), time.Now(), 1)
-	block2 := NewTestBlock(true, []byte("data2"), time.Now(), 2)
-	block3 := NewTestBlock(true, []byte("data3"), time.Now(), 3)
+	block1 := NewExistingBlock(BlockID(uuid.New().ID()), 1, []byte("data1"))
+	block2 := NewExistingBlock(BlockID(uuid.New().ID()), 2, []byte("data2"))
+	block3 := NewExistingBlock(BlockID(uuid.New().ID()), 3, []byte("data3"))
 
 	addTransactionsToBlock(block1, 4)
 
@@ -85,10 +69,9 @@ func TestLayers_AddLayer(t *testing.T) {
 	layers := getMesh("t2")
 	defer layers.Close()
 	id := LayerID(1)
-	data := []byte("data")
-	block1 := NewTestBlock(true, data, time.Now(), id)
-	block2 := NewTestBlock(true, data, time.Now(), id)
-	block3 := NewTestBlock(true, data, time.Now(), id)
+	block1 := NewExistingBlock(BlockID(uuid.New().ID()), id, []byte("data"))
+	block2 := NewExistingBlock(BlockID(uuid.New().ID()), id, []byte("data"))
+	block3 := NewExistingBlock(BlockID(uuid.New().ID()), id, []byte("data"))
 	l, err := layers.GetLayer(id)
 	assert.True(t, err != nil, "error: ", err)
 
@@ -107,9 +90,9 @@ func TestLayers_AddLayer(t *testing.T) {
 func TestLayers_AddWrongLayer(t *testing.T) {
 	layers := getMesh("t3")
 	defer layers.Close()
-	block1 := NewTestBlock(true, nil, time.Now(), 1)
-	block2 := NewTestBlock(true, nil, time.Now(), 2)
-	block3 := NewTestBlock(true, nil, time.Now(), 4)
+	block1 := NewExistingBlock(BlockID(uuid.New().ID()), 1, []byte("data data data"))
+	block2 := NewExistingBlock(BlockID(uuid.New().ID()), 2, []byte("data data data"))
+	block3 := NewExistingBlock(BlockID(uuid.New().ID()), 4, []byte("data data data"))
 	l1 := NewExistingLayer(1, []*Block{block1})
 	layers.AddBlock(block1)
 	layers.ValidateLayer(l1)
@@ -128,9 +111,9 @@ func TestLayers_AddWrongLayer(t *testing.T) {
 func TestLayers_GetLayer(t *testing.T) {
 	layers := getMesh("t4")
 	defer layers.Close()
-	block1 := NewTestBlock(true, nil, time.Now(), 1)
-	block2 := NewTestBlock(true, nil, time.Now(), 1)
-	block3 := NewTestBlock(true, nil, time.Now(), 1)
+	block1 := NewExistingBlock(BlockID(uuid.New().ID()), 1, []byte("data data data"))
+	block2 := NewExistingBlock(BlockID(uuid.New().ID()), 1, []byte("data data data"))
+	block3 := NewExistingBlock(BlockID(uuid.New().ID()), 1, []byte("data data data"))
 	l1 := NewExistingLayer(1, []*Block{block1})
 	layers.AddBlock(block1)
 	layers.ValidateLayer(l1)
@@ -163,11 +146,11 @@ func TestLayers_WakeUp(t *testing.T) {
 func TestLayers_OrphanBlocks(t *testing.T) {
 	layers := getMesh("t6")
 	defer layers.Close()
-	block1 := NewTestBlock(true, nil, time.Now(), 1)
-	block2 := NewTestBlock(true, nil, time.Now(), 1)
-	block3 := NewTestBlock(true, nil, time.Now(), 2)
-	block4 := NewTestBlock(true, nil, time.Now(), 2)
-	block5 := NewTestBlock(true, nil, time.Now(), 3)
+	block1 := NewExistingBlock(BlockID(uuid.New().ID()), 1, []byte("data data data"))
+	block2 := NewExistingBlock(BlockID(uuid.New().ID()), 1, []byte("data data data"))
+	block3 := NewExistingBlock(BlockID(uuid.New().ID()), 2, []byte("data data data"))
+	block4 := NewExistingBlock(BlockID(uuid.New().ID()), 2, []byte("data data data"))
+	block5 := NewExistingBlock(BlockID(uuid.New().ID()), 3, []byte("data data data"))
 	block5.AddView(block1.ID())
 	block5.AddView(block2.ID())
 	block5.AddView(block3.ID())

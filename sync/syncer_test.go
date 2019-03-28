@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/spacemeshos/go-spacemesh/consensus"
 	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/go-spacemesh/mesh"
 	"github.com/spacemeshos/go-spacemesh/p2p"
@@ -395,10 +394,10 @@ func syncTest(dpType string, t *testing.T) {
 	block9 := mesh.NewExistingBlock(mesh.BlockID(999), 4, nil)
 	block10 := mesh.NewExistingBlock(mesh.BlockID(101), 4, nil)
 
-	syncObj1.Mesh.ValidateLayer(consensus.GenesisLayer())
-	syncObj2.Mesh.ValidateLayer(consensus.GenesisLayer())
-	syncObj3.Mesh.ValidateLayer(consensus.GenesisLayer())
-	syncObj4.Mesh.ValidateLayer(consensus.GenesisLayer())
+	syncObj1.Mesh.ValidateLayer(mesh.GenesisLayer())
+	syncObj2.Mesh.ValidateLayer(mesh.GenesisLayer())
+	syncObj3.Mesh.ValidateLayer(mesh.GenesisLayer())
+	syncObj4.Mesh.ValidateLayer(mesh.GenesisLayer())
 	syncObj1.AddBlock(block3)
 	syncObj1.AddBlock(block4)
 	syncObj1.AddBlock(block5)

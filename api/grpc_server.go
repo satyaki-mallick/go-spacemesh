@@ -72,7 +72,7 @@ func (s SpacemeshGrpcService) SubmitTransaction(ctx context.Context, in *pb.Sign
 	tx.GasLimit = 10
 	tx.Price = big.NewInt(10).Bytes()
 
-	val, err := mesh.TransactionAsBytes(&tx)
+	val, err := mesh.TransactionAsBytes(tx)
 	if err != nil {
 		return nil, err
 	}

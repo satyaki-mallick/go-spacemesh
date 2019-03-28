@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/davecgh/go-xdr/xdr2"
+	"github.com/prometheus/common/log"
 	"github.com/spacemeshos/go-spacemesh/address"
 	"math/big"
 	"time"
@@ -31,7 +32,7 @@ type MiniBlock struct {
 
 type Block struct {
 	BlockHeader
-	Txs []*SerializableTransaction
+	Txs []SerializableTransaction
 }
 
 type SerializableTransaction struct {
@@ -57,9 +58,14 @@ func (t *SerializableTransaction) PriceAsBigInt() *big.Int {
 }
 
 func NewBlock(id BlockID, layerID LayerID, minerID string, coin bool, data []byte, ts time.Time, viewEdges []BlockID, blockVotes []BlockID, txs []*SerializableTransaction) *Block {
+	transactions := make([]SerializableTransaction, 0, len(txs))
+	for _, tx := range txs {
+		transactions = append(transactions, *tx)
+	}
+
 	b := Block{
 		BlockHeader: *newBlockHeader(id, layerID, minerID, coin, data, ts.UnixNano(), viewEdges, blockVotes),
-		Txs:         txs,
+		Txs:         transactions,
 	}
 	return &b
 }
@@ -123,7 +129,19 @@ func (b *Block) AddView(id BlockID) {
 }
 
 func (b *Block) AddTransaction(sr *SerializableTransaction) {
-	b.Txs = append(b.Txs, sr)
+	b.Txs = append(b.Txs, *sr)
+}
+
+func (b *Block) Compare(bl *Block) bool {
+	bbytes, err := BlockAsBytes(*b)
+	if err != nil {
+		log.Fatal()
+	}
+	blbytes, err := BlockAsBytes(*bl)
+	if err != nil {
+		log.Fatal()
+	}
+	return bytes.Equal(bbytes, blbytes)
 }
 
 type Layer struct {
@@ -194,7 +212,7 @@ func BytesAsBlock(buf []byte) (Block, error) {
 	return b, nil
 }
 
-func TransactionAsBytes(tx *SerializableTransaction) ([]byte, error) {
+func TransactionAsBytes(tx SerializableTransaction) ([]byte, error) {
 	var w bytes.Buffer
 	if _, err := xdr.Marshal(&w, &tx); err != nil {
 		return nil, fmt.Errorf("error marshalling block ids %v", err)
