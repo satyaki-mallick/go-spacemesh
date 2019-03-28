@@ -32,7 +32,7 @@ func createFullPointingLayer(prev *mesh.Layer, blocksInLayer int) *mesh.Layer {
 	data := []byte(crypto.UUIDString())
 	l := mesh.NewLayer(prev.Index() + 1)
 	for i := 0; i < blocksInLayer; i++ {
-		bl := mesh.NewBlock(coin, data, ts, 1)
+		bl := NewTestBlock(coin, data, ts, 1)
 
 		for _, prevBloc := range prev.Blocks() {
 			bl.AddVote(mesh.BlockID(prevBloc.Id))
