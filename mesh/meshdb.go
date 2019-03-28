@@ -68,7 +68,7 @@ func (m *MeshDB) Close() {
 	m.contextualValidity.Close()
 }
 
-func (m *MeshDB) Get(id BlockID) (*Block, error) {
+func (m *MeshDB) GetBlock(id BlockID) (*Block, error) {
 
 	blk, err := m.GetBlockHeader(id)
 	if err != nil {
@@ -126,27 +126,33 @@ func (m *MeshDB) AddLayer(layer *Layer) error {
 	return nil
 }
 
-func (m *MeshDB) GetLayer(index LayerID) (*Layer, error) {
-	ids, err := m.layers.Get(index.ToBytes())
+func (m *MeshDB) LayerBlockIds(index LayerID) ([]BlockID, error) {
+
+	idSet, err := m.layerBlockIds(index)
 	if err != nil {
-		return nil, fmt.Errorf("error getting layer %v from database ", index)
+		return nil, err
+	}
+
+	blockids := make([]BlockID, 0, len(idSet))
+	for k := range idSet {
+		blockids = append(blockids, k)
+	}
+
+	return blockids, nil
+}
+
+func (m *MeshDB) GetLayer(index LayerID) (*Layer, error) {
+	bids, err := m.layerBlockIds(index)
+	if err != nil {
+		return nil, err
+	}
+
+	blocks, err := m.getLayerBlocks(bids)
+	if err != nil {
+		return nil, err
 	}
 
 	l := NewLayer(LayerID(index))
-	if len(ids) == 0 {
-		return nil, fmt.Errorf("no ids for layer %v in database ", index)
-	}
-
-	blockIds, err := bytesToBlockIds(ids)
-	if err != nil {
-		return nil, errors.New("could not get all blocks from database ")
-	}
-
-	blocks, err := m.getLayerBlocks(blockIds)
-	if err != nil {
-		return nil, errors.New("could not get all blocks from database " + err.Error())
-	}
-
 	l.SetBlocks(blocks)
 
 	return l, nil
@@ -160,7 +166,7 @@ func (mc *MeshDB) ForBlockInView(view map[BlockID]struct{}, layer LayerID, foo f
 	set := make(map[BlockID]struct{})
 	for b := stack.Front(); b != nil; b = stack.Front() {
 		a := stack.Remove(stack.Front()).(BlockID)
-		block, err := mc.Get(a)
+		block, err := mc.GetBlock(a)
 		if err != nil {
 			errHandler(err)
 		}
@@ -180,6 +186,25 @@ func (mc *MeshDB) ForBlockInView(view map[BlockID]struct{}, layer LayerID, foo f
 		}
 	}
 	return
+}
+
+func (m *MeshDB) layerBlockIds(index LayerID) (map[BlockID]bool, error) {
+
+	ids, err := m.layers.Get(index.ToBytes())
+	if err != nil {
+		return nil, fmt.Errorf("error getting layer %v from database ", index)
+	}
+
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("no ids for layer %v in database ", index)
+	}
+
+	idSet, err := bytesToBlockIds(ids)
+	if err != nil {
+		return nil, errors.New("could not get all blocks from database ")
+	}
+
+	return idSet, nil
 }
 
 func blockFromMiniAndTxs(blk *MiniBlock, transactions []*SerializableTransaction) *Block {
@@ -274,7 +299,7 @@ func (m *MeshDB) getLayerBlocks(ids map[BlockID]bool) ([]*Block, error) {
 
 	blocks := make([]*Block, 0, len(ids))
 	for k := range ids {
-		block, err := m.Get(k)
+		block, err := m.GetBlock(k)
 		if err != nil {
 			return nil, errors.New("could not retrieve block " + fmt.Sprint(k) + " " + err.Error())
 		}

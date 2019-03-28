@@ -23,6 +23,10 @@ const disc = 2
 
 const memType = inmem
 
+func init() {
+	persistenceTeardown()
+}
+
 func NewTestBlock(coin bool, data []byte, ts time.Time, LayerID mesh.LayerID) *mesh.Block {
 	b := mesh.Block{
 		BlockHeader: mesh.BlockHeader{Id: mesh.BlockID(uuid.New().ID()),
@@ -102,7 +106,6 @@ func TestForEachInView(t *testing.T) {
 	mdb := mesh.NewPersistentMeshDB("TestForEachInView", log.New("TestForEachInView", "", ""))
 
 	defer mdb.Close()
-	alg := NewNinjaTortoise(2, mdb, log.New("TestForEachInView", "", ""))
 	l := mesh.GenesisLayer()
 	for _, b := range l.Blocks() {
 		blocks[b.ID()] = b
@@ -113,9 +116,6 @@ func TestForEachInView(t *testing.T) {
 			blocks[b.ID()] = b
 		}
 		l = lyr
-		for b, vec := range alg.tTally[alg.pBase] {
-			alg.Debug("------> tally for block %d according to complete pattern %d are %d", b, alg.pBase, vec)
-		}
 	}
 	mp := map[mesh.BlockID]struct{}{}
 
@@ -220,9 +220,8 @@ func TestNinjaTortoise_S200P140(t *testing.T) {
 func TestNinjaTortoise_Sanity1(t *testing.T) {
 	layerSize := 200
 	patternSize := 200
-	layers := 100
-	defer persistenceTeardown()
-	mdb := getPersistentMash()
+	layers := 20
+	mdb := getInMemMesh()
 	alg := sanity(mdb, layers, layerSize, patternSize, 0.2)
 	res := vec{patternSize * (layers - 1), 0}
 	assert.True(t, alg.tTally[alg.pBase][config.GenesisId] == res, "lyr %d tally was %d insted of %d", layers, alg.tTally[alg.pBase][config.GenesisId], res)
@@ -245,7 +244,7 @@ func sanity(mdb *mesh.MeshDB, layers int, layerSize int, patternSize int, badBlk
 
 	alg := NewNinjaTortoise(layerSize, mdb, lg)
 
-	for i := 0; i < layers-1; i++ {
+	for i := 0; i < layers; i++ {
 		lyr, err := mdb.GetLayer(mesh.LayerID(i))
 		if err != nil {
 			alg.Error("could not get layer ", err)

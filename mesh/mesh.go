@@ -379,7 +379,7 @@ func (m *Mesh) AccumulateRewards(rewardLayer LayerID, params RewardConfig) {
 
 func (m *Mesh) GetBlock(id BlockID) (*Block, error) {
 	m.Debug("get block %d", id)
-	return m.mdb.Get(id)
+	return m.mdb.GetBlock(id)
 }
 
 func (m *Mesh) GetContextualValidity(id BlockID) (bool, error) {
