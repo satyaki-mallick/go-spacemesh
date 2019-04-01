@@ -2,8 +2,8 @@ package hare
 
 import (
 	"github.com/spacemeshos/go-spacemesh/hare/metrics"
-	"github.com/spacemeshos/go-spacemesh/hare/pb"
 	"github.com/spacemeshos/go-spacemesh/log"
+	"github.com/spacemeshos/go-spacemesh/signing"
 )
 
 // Tracks pre-round messages
@@ -23,8 +23,8 @@ func NewPreRoundTracker(threshold int, expectedSize int) *PreRoundTracker {
 }
 
 // Tracks a pre-round message
-func (pre *PreRoundTracker) OnPreRound(msg *pb.HareMessage) {
-	verifier, err := NewVerifier(msg.PubKey)
+func (pre *PreRoundTracker) OnPreRound(msg *Msg) {
+	verifier, err := signing.NewVerifier(msg.PubKey)
 	if err != nil {
 		log.Warning("Could not construct verifier: ", err)
 		return

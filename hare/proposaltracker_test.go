@@ -1,13 +1,13 @@
 package hare
 
 import (
-	"github.com/spacemeshos/go-spacemesh/hare/pb"
 	"github.com/spacemeshos/go-spacemesh/log"
+	"github.com/spacemeshos/go-spacemesh/signing"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
-func buildProposalMsg(signing Signing, s *Set, signature Signature) *pb.HareMessage {
+func buildProposalMsg(signing signing.Signer, s *Set, signature Signature) *Msg {
 	builder := NewMessageBuilder().SetRoleProof(signature)
 	builder.SetType(Proposal).SetInstanceId(instanceId1).SetRoundCounter(Round2).SetKi(ki).SetValues(s)
 	builder = builder.SetPubKey(signing.Verifier().Bytes()).Sign(signing)
@@ -15,7 +15,7 @@ func buildProposalMsg(signing Signing, s *Set, signature Signature) *pb.HareMess
 	return builder.Build()
 }
 
-func BuildProposalMsg(signing Signing, s *Set) *pb.HareMessage {
+func BuildProposalMsg(signing signing.Signer, s *Set) *Msg {
 	return buildProposalMsg(signing, s, Signature{})
 }
 

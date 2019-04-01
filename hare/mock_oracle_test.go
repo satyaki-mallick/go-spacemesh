@@ -2,6 +2,7 @@ package hare
 
 import (
 	"encoding/binary"
+	"github.com/spacemeshos/go-spacemesh/signing"
 	"github.com/stretchr/testify/assert"
 	"math"
 	"math/rand"
@@ -29,7 +30,7 @@ func TestMockHashOracle_Unregister(t *testing.T) {
 
 func TestMockHashOracle_Concurrency(t *testing.T) {
 	oracle := NewMockHashOracle(numOfClients)
-	c := make(chan Signing, 1000)
+	c := make(chan signing.Signer, 1000)
 	done := make(chan int, 2)
 
 	go func() {
