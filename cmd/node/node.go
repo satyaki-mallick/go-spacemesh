@@ -16,9 +16,11 @@ import (
 	"github.com/spacemeshos/go-spacemesh/miner"
 	"github.com/spacemeshos/go-spacemesh/oracle"
 	"github.com/spacemeshos/go-spacemesh/p2p/service"
+	"github.com/spacemeshos/go-spacemesh/signing"
 	"github.com/spacemeshos/go-spacemesh/state"
 	"github.com/spacemeshos/go-spacemesh/sync"
 	"github.com/spacemeshos/go-spacemesh/version"
+	"io/ioutil"
 	"math/rand"
 
 	"os"
@@ -82,6 +84,7 @@ type SpacemeshApp struct {
 	clock            *timesync.Ticker
 	hare             *hare.Hare
 	unregisterOracle func()
+	edSgn            *signing.EdSigner
 }
 
 type MiningEnabler interface {
@@ -214,6 +217,8 @@ func (app *SpacemeshApp) getAppInfo() string {
 func (app *SpacemeshApp) Cleanup(cmd *cobra.Command, args []string) (err error) {
 	log.Info("App Cleanup starting...")
 
+	ioutil.WriteFile("identity.ed", app.edSgn.ToBuffer(), 0644)
+
 	if app.jsonAPIService != nil {
 		log.Info("Stopping JSON service api...")
 		app.jsonAPIService.StopService()
@@ -249,7 +254,7 @@ func (app *SpacemeshApp) setupTestFeatures() {
 	api.ApproveAPIGossipMessages(cmdp.Ctx, app.P2P)
 }
 
-func (app *SpacemeshApp) initServices(instanceName string, swarm service.Service, dbStorepath string, sgn hare.Signing,
+func (app *SpacemeshApp) initServices(instanceName string, swarm service.Service, dbStorepath string, sgn signing.Signer,
 	blockOracle oracle.BlockOracle, blockValidator sync.BlockValidator, hareOracle hare.Rolacle, layerSize int) error {
 
 	app.instanceName = instanceName
@@ -289,7 +294,7 @@ func (app *SpacemeshApp) initServices(instanceName string, swarm service.Service
 
 	ha := hare.New(app.Config.HARE, swarm, sgn, msh, hareOracle, clock.Subscribe(), lg.WithName("hare"))
 
-	nodeID := mesh.NodeId{Key: instanceName} // TODO: where does this come from?
+	nodeID := mesh.NodeId{Key: sgn.Verifier().String()} // TODO: where does this come from?
 	blockProducer := miner.NewBlockBuilder(nodeID, swarm, clock.Subscribe(), coinToss, msh, ha, blockOracle, lg.WithName("blockProducer"))
 	blockListener := sync.NewBlockListener(swarm, blockValidator, msh, 2*time.Second, 4, lg.WithName("blockListener"))
 
@@ -352,6 +357,25 @@ func (app SpacemeshApp) stopServices() {
 
 }
 
+func getEdIdentity() *signing.EdSigner {
+	// read key from file if exist
+	log.Info("Reading identity from file")
+	dataDir, err := filesystem.GetSpacemeshDataDirectoryPath()
+	if err != nil {
+		log.Error("Could not get data path err=%v", err)
+		return signing.NewEdSigner()
+	}
+
+	buff, e1 := ioutil.ReadFile( dataDir + "/identity.ed")
+	edSgn, e2 := signing.NewEdSignerFromBuffer(buff)
+	if e1 != nil || e2 != nil {
+		log.Warning("Failed to read identity. Creating new ed key pair. e1=%v e2=%v", e1, e2)
+		return signing.NewEdSigner()
+	}
+
+	return edSgn
+}
+
 func (app *SpacemeshApp) Start(cmd *cobra.Command, args []string) {
 	log.Info("Starting Spacemesh")
 
@@ -365,14 +389,16 @@ func (app *SpacemeshApp) Start(cmd *cobra.Command, args []string) {
 
 	// todo : register all protocols
 
-	sgn := hare.NewMockSigning() //todo: shouldn't be any mock code here
-	pub, _ := crypto.NewPublicKey(sgn.Verifier().Bytes())
+	app.edSgn = getEdIdentity()
+
+	//crypto.NewPublicKey(sgn.Verifier().Bytes())
+	// TODO ADD KEY
 
 	oracle.SetServerAddress(app.Config.OracleServer)
 	oracleClient := oracle.NewOracleClientWithWorldID(uint64(app.Config.OracleServerWorldId))
-	oracleClient.Register(true, pub.String()) // todo: configure no faulty nodes
+	oracleClient.Register(true, app.edSgn.Verifier().String()) // todo: configure no faulty nodes
 
-	app.unregisterOracle = func() { oracleClient.Unregister(true, pub.String()) }
+	app.unregisterOracle = func() { oracleClient.Unregister(true, app.edSgn.Verifier().String()) }
 
 	//bo := oracle.NewBlockOracleFromClient(oracleClient, int(app.Config.CONSENSUS.NodesPerLayer))
 	nodesPerLayer := app.Config.CONSENSUS.NodesPerLayer
@@ -386,7 +412,7 @@ func (app *SpacemeshApp) Start(cmd *cobra.Command, args []string) {
 
 	apiConf := &app.Config.API
 
-	err = app.initServices("x", swarm, "/tmp/", sgn, bo, nil, hareOracle, 50)
+	err = app.initServices("x", swarm, "/tmp/", app.edSgn, bo, nil, hareOracle, 50)
 	if err != nil {
 		log.Error("cannot start services %v", err.Error())
 		return

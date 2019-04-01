@@ -3,10 +3,10 @@ package hare
 import (
 	"github.com/spacemeshos/go-spacemesh/common"
 	"github.com/spacemeshos/go-spacemesh/hare/config"
-	"github.com/spacemeshos/go-spacemesh/hare/pb"
 	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/go-spacemesh/mesh"
 	"github.com/spacemeshos/go-spacemesh/p2p/service"
+	sgn "github.com/spacemeshos/go-spacemesh/signing"
 	"github.com/stretchr/testify/require"
 	"sort"
 	"sync"
@@ -47,10 +47,10 @@ func (mcp *mockConsensusProcess) Id() InstanceId {
 	return mcp.id
 }
 
-func (mcp *mockConsensusProcess) SetInbox(chan *pb.HareMessage) {
+func (mcp *mockConsensusProcess) SetInbox(chan *Msg) {
 }
 
-func NewMockConsensusProcess(cfg config.Config, instanceId InstanceId, s *Set, oracle Rolacle, signing Signing, p2p NetworkService, outputChan chan TerminationOutput) *mockConsensusProcess {
+func NewMockConsensusProcess(cfg config.Config, instanceId InstanceId, s *Set, oracle Rolacle, signing sgn.Signer, p2p NetworkService, outputChan chan TerminationOutput) *mockConsensusProcess {
 	mcp := new(mockConsensusProcess)
 	mcp.Closer = NewCloser()
 	mcp.id = instanceId
@@ -148,7 +148,7 @@ func TestHare_GetResult2(t *testing.T) {
 
 	h.networkDelta = 0
 
-	h.factory = func(cfg config.Config, instanceId InstanceId, s *Set, oracle Rolacle, signing Signing, p2p NetworkService, outputChan chan TerminationOutput) Consensus {
+	h.factory = func(cfg config.Config, instanceId InstanceId, s *Set, oracle Rolacle, signing sgn.Signer, p2p NetworkService, outputChan chan TerminationOutput) Consensus {
 		return NewMockConsensusProcess(cfg, instanceId, s, oracle, signing, p2p, outputChan)
 	}
 
@@ -263,7 +263,7 @@ func TestHare_onTick(t *testing.T) {
 	createdChan := make(chan struct{})
 
 	var nmcp *mockConsensusProcess
-	h.factory = func(cfg config.Config, instanceId InstanceId, s *Set, oracle Rolacle, signing Signing, p2p NetworkService, outputChan chan TerminationOutput) Consensus {
+	h.factory = func(cfg config.Config, instanceId InstanceId, s *Set, oracle Rolacle, signing sgn.Signer, p2p NetworkService, outputChan chan TerminationOutput) Consensus {
 		nmcp = NewMockConsensusProcess(cfg, instanceId, s, oracle, signing, p2p, outputChan)
 		createdChan <- struct{}{}
 		return nmcp

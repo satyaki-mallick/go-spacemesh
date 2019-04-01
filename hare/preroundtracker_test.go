@@ -1,7 +1,7 @@
 package hare
 
 import (
-	"github.com/spacemeshos/go-spacemesh/hare/pb"
+	"github.com/spacemeshos/go-spacemesh/signing"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -24,7 +24,7 @@ var value8 = Value{8}
 var value9 = Value{9}
 var value10 = Value{10}
 
-func BuildPreRoundMsg(signing Signing, s *Set) *pb.HareMessage {
+func BuildPreRoundMsg(signing signing.Signer, s *Set) *Msg {
 	builder := NewMessageBuilder()
 	builder.SetType(PreRound).SetInstanceId(instanceId1).SetRoundCounter(k).SetKi(ki).SetValues(s)
 	builder = builder.SetPubKey(signing.Verifier().Bytes()).Sign(signing)

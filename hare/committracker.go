@@ -5,10 +5,11 @@ import (
 	"github.com/spacemeshos/go-spacemesh/hare/metrics"
 	"github.com/spacemeshos/go-spacemesh/hare/pb"
 	"github.com/spacemeshos/go-spacemesh/log"
+	"github.com/spacemeshos/go-spacemesh/signing"
 )
 
 type commitTracker interface {
-	OnCommit(msg *pb.HareMessage)
+	OnCommit(msg *Msg)
 	HasEnoughCommits() bool
 	BuildCertificate() *pb.Certificate
 }
@@ -32,7 +33,7 @@ func NewCommitTracker(threshold int, expectedSize int, proposedSet *Set) *Commit
 }
 
 // Tracks the provided commit message
-func (ct *CommitTracker) OnCommit(msg *pb.HareMessage) {
+func (ct *CommitTracker) OnCommit(msg *Msg) {
 	if ct.proposedSet == nil { // no valid proposed set
 		return
 	}
@@ -41,7 +42,7 @@ func (ct *CommitTracker) OnCommit(msg *pb.HareMessage) {
 		return
 	}
 
-	verifier, err := NewVerifier(msg.PubKey)
+	verifier, err := signing.NewVerifier(msg.PubKey)
 	if err != nil {
 		log.Warning("Could not construct verifier: ", err)
 		return
@@ -60,7 +61,7 @@ func (ct *CommitTracker) OnCommit(msg *pb.HareMessage) {
 
 	// add msg
 	metrics.CommitCounter.With("set_id", fmt.Sprint(s.Id())).Add(1)
-	ct.commits = append(ct.commits, msg)
+	ct.commits = append(ct.commits, msg.HareMessage)
 }
 
 // Checks if the tracker received enough commits to build a certificate

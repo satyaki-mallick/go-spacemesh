@@ -10,6 +10,7 @@ import (
 	"github.com/spacemeshos/go-spacemesh/miner"
 	"github.com/spacemeshos/go-spacemesh/oracle"
 	"github.com/spacemeshos/go-spacemesh/p2p/service"
+	"github.com/spacemeshos/go-spacemesh/signing"
 	"github.com/stretchr/testify/suite"
 	"math/big"
 	"os"
@@ -53,12 +54,13 @@ func (app *AppTestSuite) initMultipleInstances(t *testing.T, numOfInstances int,
 		store := storeFormat + string(runningName)
 		n := net.NewNode()
 
+		edSgn := signing.NewEdSigner()
 		sgn := hare.NewMockSigning() //todo: shouldn't be any mock code here
 		pub := sgn.Verifier()
 		bo := oracle.NewLocalOracle(numOfInstances, mesh.NodeId{Key: pub.String()})
-		bo.Register(true, pub.String())
+		bo.Register(true, edSgn.Verifier().String())
 
-		err := app.apps[i].initServices(pub.String(), n, store, sgn, bo, nil, bo, numOfInstances) // TODO: pass blockValidator and hareOracle
+		err := app.apps[i].initServices(pub.String(), n, store, edSgn, bo, nil, bo, numOfInstances) // TODO: pass blockValidator and hareOracle
 		assert.NoError(t, err)
 		app.apps[i].setupGenesis(apiCfg.DefaultGenesisConfig())
 		app.dbs = append(app.dbs, store)

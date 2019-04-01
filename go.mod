@@ -21,6 +21,7 @@ require (
 	github.com/prometheus/common v0.2.0
 	github.com/prometheus/procfs v0.0.0-20190203183350-488faf799f86 // indirect
 	github.com/seehuhn/mt19937 v0.0.0-20180715112136-cc7708819361
+	github.com/spacemeshos/ed25519 v0.0.0-20190316215305-5878e62449c1
 	github.com/spacemeshos/merkle-tree v0.0.0-20190327145446-3651a544f849
 	github.com/spacemeshos/poet-ref v0.0.0-20190404082615-4bb5581dbcba
 	github.com/spacemeshos/sha256-simd v0.0.0-20190111104731-8575aafc88c9
