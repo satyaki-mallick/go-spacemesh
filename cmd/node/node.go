@@ -353,6 +353,7 @@ func (app *SpacemeshApp) Start(cmd *cobra.Command, args []string) {
 
 	// start p2p services
 	log.Info("Initializing P2P services")
+	panic("IB: this is the panic!")
 	swarm, err := p2p.New(cmdp.Ctx, app.Config.P2P)
 	if err != nil {
 		log.Error("Error starting p2p services, err: %v", err)
