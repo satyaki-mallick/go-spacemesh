@@ -18,6 +18,7 @@ from elasticsearch_dsl import Search, Q
 
 from tests.misc import ContainerSpec
 
+
 BOOT_DEPLOYMENT_FILE = './k8s/bootstrap-w-conf.yml'
 CLIENT_DEPLOYMENT_FILE = './k8s/client-w-conf.yml'
 ORACLE_DEPLOYMENT_FILE = './k8s/oracle.yml'
@@ -417,6 +418,16 @@ def test_transaction(load_config, setup_clients):
 
     out = api_call(client_ip, data, api, testconfig['namespace'])
     assert '{"value":"ok"}' in out.decode("utf-8")
+    time.sleep(60 * 3)
+    api = 'v1/balance'
+    data = '{"address":"222"}'
+    p = subprocess.Popen(['./kubectl-cmd.sh', '%s' % client_ip, "%s" % data, api], stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    (out, err) = p.communicate()
+
+    print(out.decode("utf-8"))
+
+
 
 
 
