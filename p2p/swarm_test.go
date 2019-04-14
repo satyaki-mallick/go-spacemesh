@@ -53,11 +53,7 @@ func p2pTestInstance(t testing.TB, config config.Config) *swarm {
 }
 
 func p2pTestNoStart(t testing.TB, config config.Config) *swarm {
-	port, err := node.GetUnboundedPort()
-	if err != nil {
-		t.Fatal("port err ", err)
-	}
-	config.TCPPort = port
+	config.TCPPort = 0 // let the os give us a random port
 	p, err := newSwarm(context.TODO(), config, true, debug)
 	if err != nil {
 		t.Fatal("err creating a swarm", err)
@@ -308,7 +304,7 @@ func TestSwarm_MultipleMessagesFromMultipleSenders(t *testing.T) {
 		go func() {
 			p := p2pTestInstance(t, cfg)
 			sa.add(p)
-			p.dht.Update(p1.LocalNode().Node)
+			p.dht.Update(node.New(p1.LocalNode().PublicKey(), p1.network.ListenAddress().String()))
 			mychan := make(chan struct{})
 			mu.Lock()
 			pend[p.lNode.Node.PublicKey().String()] = mychan

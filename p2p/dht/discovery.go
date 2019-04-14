@@ -16,7 +16,7 @@ type protocolRoutingTable interface {
 }
 
 type discovery struct {
-	local     node.Node
+	local     nodeFunc
 	table     protocolRoutingTable
 	logger    log.Log
 	msgServer *server.MessageServer
@@ -38,7 +38,7 @@ const PINGPONG = 0
 const FIND_NODE = 1
 
 // NewDiscoveryProtocol is a constructor for a discovery protocol provider.
-func NewDiscoveryProtocol(local node.Node, rt protocolRoutingTable, svc server.Service, log log.Log) *discovery {
+func NewDiscoveryProtocol(local nodeFunc, rt protocolRoutingTable, svc server.Service, log log.Log) *discovery {
 	s := server.NewMsgServer(svc, Name, time.Second, make(chan service.DirectMessage, MessageBufSize), log)
 	d := &discovery{
 		local:     local,

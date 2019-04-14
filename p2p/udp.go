@@ -27,26 +27,30 @@ type udpNetwork interface {
 	Start() error
 	Shutdown()
 
+	ListenAddress() *net.UDPAddr
+
 	IncomingMessages() chan inet.UDPMessageEvent
 	Send(to node.Node, data []byte) error
 }
 
 // UDPMux is a server for receiving and sending udp messages. through protocols.
 type UDPMux struct {
-	local    *node.LocalNode
-	lookuper Lookuper
-	network  udpNetwork
-	messages map[string]chan service.DirectMessage
-	shutdown chan struct{}
-	logger   log.Log
+	local     p2pcrypto.PublicKey
+	lookuper  Lookuper
+	network   udpNetwork
+	networkID int8
+	messages  map[string]chan service.DirectMessage
+	shutdown  chan struct{}
+	logger    log.Log
 }
 
 // NewUDPMux creates a new udp protocol server
-func NewUDPMux(localNode *node.LocalNode, lookuper Lookuper, udpNet udpNetwork, logger log.Log) *UDPMux {
+func NewUDPMux(local p2pcrypto.PublicKey, networkID int8, lookuper Lookuper, udpNet udpNetwork, logger log.Log) *UDPMux {
 	return &UDPMux{
-		localNode,
+		local,
 		lookuper,
 		udpNet,
+		networkID,
 		make(map[string]chan service.DirectMessage),
 		make(chan struct{}, 1),
 		logger,
@@ -138,7 +142,7 @@ func (mux *UDPMux) sendMessageImpl(peerPubkey p2pcrypto.PublicKey, protocol stri
 	//todo: Session (maybe use cpool ?)
 
 	protomessage := &pb.UDPProtocolMessage{
-		Metadata: pb.NewUDPProtocolMessageMetadata(mux.local.PublicKey(), mux.local.NetworkID(), protocol), // todo : config
+		Metadata: pb.NewUDPProtocolMessageMetadata(mux.local, mux.networkID, protocol), // todo : config
 	}
 
 	realpayload, err := pb.CreatePayload(payload)
@@ -193,9 +197,9 @@ func (mux *UDPMux) processUDPMessage(sender p2pcrypto.PublicKey, fromaddr net.Ad
 		return errors.New("could'nt deserialize message")
 	}
 
-	if msg.Metadata.NetworkID != int32(mux.local.NetworkID()) {
+	if msg.Metadata.NetworkID != int32(mux.networkID) {
 		// todo: tell net to blacklist the ip or sender ?
-		return fmt.Errorf("wrong NetworkID, want: %v, got: %v", mux.local.NetworkID(), msg.Metadata.NetworkID)
+		return fmt.Errorf("wrong NetworkID, want: %v, got: %v", mux.networkID, msg.Metadata.NetworkID)
 	}
 
 	if t, err := version.CheckNodeVersion(msg.Metadata.ClientVersion, config.MinClientVersion); err != nil || !t {

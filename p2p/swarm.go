@@ -104,7 +104,6 @@ func (s *swarm) waitForGossip() error {
 // newSwarm creates a new P2P instance, configured by config, if newNode is true it will create a new node identity
 // and not load from disk. it creates a new `net`, connection pool and dht.
 func newSwarm(ctx context.Context, config config.Config, newNode bool, persist bool) (*swarm, error) {
-
 	port := config.TCPPort
 	address := inet.JoinHostPort("0.0.0.0", strconv.Itoa(port))
 
@@ -154,7 +153,7 @@ func newSwarm(ctx context.Context, config config.Config, newNode bool, persist b
 		return nil, err
 	}
 	// todo : if discovery on
-	s.dht = dht.New(l, config.SwarmConfig, s.udpServer) // create table and discovery protocol
+	s.dht = dht.New(s.UDPNode, config.SwarmConfig, s.udpServer, s.lNode.Log) // create table and discovery protocol
 
 	cpool := connectionpool.NewConnectionPool(s.network, l.PublicKey())
 
@@ -178,9 +177,19 @@ func (s *swarm) setupUDP() error {
 	if err != nil {
 		return err
 	}
-	mux := NewUDPMux(s.lNode, s.lookupFunc, udpnet, s.lNode.Log)
+	mux := NewUDPMux(s.lNode.PublicKey(), s.config.NetworkID, s.lookupFunc, udpnet, s.lNode.Log)
 	s.udpServer = mux
 	return nil
+}
+
+// Node is the node address we have
+func (s *swarm) TCPNode() node.Node {
+	return node.New(s.lNode.PublicKey(), s.network.ListenAddress().String())
+}
+
+// Node is the node address we have
+func (s *swarm) UDPNode() node.Node {
+	return node.New(s.lNode.PublicKey(), s.udpServer.network.ListenAddress().String())
 }
 
 func (s *swarm) lookupFunc(target p2pcrypto.PublicKey) (node.Node, error) {

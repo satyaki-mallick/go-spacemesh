@@ -125,6 +125,10 @@ func (n *Net) LocalNode() *node.LocalNode {
 	return n.localNode
 }
 
+func (n *Net) ListenAddress() *net.TCPAddr {
+	return n.listenAddress
+}
+
 // sumByteArray sums all bytes in an array as uint
 func sumByteArray(b []byte) uint {
 	var sumOfChars uint
@@ -246,11 +250,12 @@ func (n *Net) Shutdown() {
 }
 
 func (n *Net) newTcpListener() (net.Listener, error) {
-	n.logger.Info("Starting to listen on tcp:%v", n.listenAddress)
 	tcpListener, err := net.Listen("tcp", n.listenAddress.String())
 	if err != nil {
 		return nil, err
 	}
+	n.logger.Info("Started listening on tcp:%v", tcpListener.Addr().String())
+	n.listenAddress = tcpListener.Addr().(*net.TCPAddr)
 	return tcpListener, nil
 }
 

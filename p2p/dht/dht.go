@@ -27,6 +27,8 @@ type DHT interface {
 	Size() int
 }
 
+type nodeFunc func() node.Node
+
 // LookupTimeout is the timelimit we give to a single lookup operation
 const LookupTimeout = 15 * time.Second
 
@@ -42,9 +44,11 @@ var (
 type KadDHT struct {
 	config config.SwarmConfig
 
-	local *node.LocalNode
+	local nodeFunc
 
 	rt RoutingTable
+
+	log log.Log
 
 	disc DiscoveryProtocol
 }
@@ -67,14 +71,15 @@ type DiscoveryProtocol interface {
 }
 
 // New creates a new dht
-func New(ln *node.LocalNode, config config.SwarmConfig, service server.Service) *KadDHT {
+func New(local nodeFunc, config config.SwarmConfig, service server.Service, lg log.Log) *KadDHT {
 	d := &KadDHT{
 		config: config,
-		local:  ln,
-		rt:     NewRoutingTable(config.RoutingTableBucketSize, ln.DhtID(), ln.Log),
+		local:  local,
+		rt:     NewRoutingTable(config.RoutingTableBucketSize, local().DhtID(), lg),
+		log:    lg,
 	}
 
-	d.disc = NewDiscoveryProtocol(ln.Node, d, service, ln.Log)
+	d.disc = NewDiscoveryProtocol(local, d, service, lg)
 
 	return d
 }
@@ -220,7 +225,7 @@ func (d *KadDHT) findNodeOp(servers []node.Node, queried map[string]bool, id p2p
 	startTime := time.Now()
 
 	defer func() {
-		d.local.With().Debug("findNodeOp", log.Int("servers", len(servers)), log.Int("result_count", len(out)), log.Duration("time_elapsed", time.Since(startTime)))
+		d.log.With().Debug("findNodeOp", log.Int("servers", len(servers)), log.Int("result_count", len(out)), log.Duration("time_elapsed", time.Since(startTime)))
 	}()
 
 	l := len(servers)
@@ -246,7 +251,7 @@ func (d *KadDHT) findNodeOp(servers []node.Node, queried map[string]bool, id p2p
 
 			defer func() {
 				if err != nil {
-					d.local.With().Debug("find_node_failed", log.String("server", server.String()), log.Err(err))
+					d.log.With().Debug("find_node_failed", log.String("server", server.String()), log.Err(err))
 					results <- &findNodeOpRes{nil, server}
 					d.rt.Remove(server) // remove node if it didn't work
 					return

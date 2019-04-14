@@ -28,7 +28,7 @@ func (p *discovery) newPingRequestHandler() func(msg server.Message) []byte {
 		}
 
 		//pong
-		payload, err := proto.Marshal(&pb.Ping{ID: p.local.PublicKey().Bytes(), ListenAddress: p.local.Address()})
+		payload, err := proto.Marshal(&pb.Ping{ID: p.local().PublicKey().Bytes(), ListenAddress: p.local().Address()})
 
 		if err != nil {
 			p.logger.Error("Error marshaling response message (Ping)")
@@ -70,7 +70,7 @@ func (p *discovery) verifyPinger(from net.Addr, pi *pb.Ping) error {
 
 func (p *discovery) Ping(peer p2pcrypto.PublicKey) error {
 	p.logger.Info("send ping request Peer: %v", peer)
-	data := &pb.Ping{ID: p.local.PublicKey().Bytes(), ListenAddress: p.local.Address()}
+	data := &pb.Ping{ID: p.local().PublicKey().Bytes(), ListenAddress: p.local().Address()}
 	payload, err := proto.Marshal(data)
 	if err != nil {
 		return err

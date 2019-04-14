@@ -35,7 +35,7 @@ var (
 // while all the nodes that receive our query will add us to their routing tables and send us as response to a `FindNode`.
 func (d *KadDHT) Bootstrap(ctx context.Context) error {
 
-	d.local.Debug("Starting node bootstrap ", d.local.String())
+	d.log.Debug("Starting node bootstrap ", d.local().String())
 
 	alpha := d.config.RoutingTableAlpha
 	c := d.config.RandomConnections
@@ -53,14 +53,14 @@ func (d *KadDHT) Bootstrap(ctx context.Context) error {
 		}
 		d.rt.Update(nd)
 		bn++
-		d.local.Info("added new bootstrap node %v", nd)
+		d.log.Info("added new bootstrap node %v", nd)
 	}
 
 	if bn == 0 {
 		return ErrConnectToBootNode
 	}
 
-	d.local.Debug("Lookup using %d preloaded bootnodes ", bn)
+	d.log.Debug("Lookup using %d preloaded bootnodes ", bn)
 
 	err := d.tryBoot(ctx, c)
 
@@ -69,10 +69,10 @@ func (d *KadDHT) Bootstrap(ctx context.Context) error {
 
 func (d *KadDHT) tryBoot(ctx context.Context, minPeers int) error {
 
-	searchFor := d.local.PublicKey()
+	searchFor := d.local().PublicKey()
 	tries := 0
 	var size int
-	d.local.Debug("BOOTSTRAP: Running kademlia lookup for ourselves")
+	d.log.Debug("BOOTSTRAP: Running kademlia lookup for ourselves")
 
 loop:
 	for {
@@ -83,7 +83,7 @@ loop:
 				//TODO: consider choosing a random key that is close to the local id
 				//or TODO: implement real kademlia refreshes - #241
 				searchFor = p2pcrypto.NewRandomPubkey()
-				d.local.Debug("BOOTSTRAP: Running kademlia lookup for random peer")
+				d.log.Debug("BOOTSTRAP: Running kademlia lookup for random peer")
 			}
 			_, err := d.Lookup(searchFor)
 			reschan <- err
@@ -109,7 +109,7 @@ loop:
 			}
 		}
 
-		d.local.Warning("%d lookup didn't bootstrap the routing table. RT now has %d peers", tries, size)
+		d.log.Warning("%d lookup didn't bootstrap the routing table. RT now has %d peers", tries, size)
 
 		timer := time.NewTimer(LookupIntervals)
 		select {

@@ -3,6 +3,10 @@ package p2p
 import (
 	"context"
 	"fmt"
+	gcfg "github.com/spacemeshos/go-spacemesh/app/config"
+	"github.com/spacemeshos/go-spacemesh/common"
+	"github.com/spacemeshos/go-spacemesh/crypto"
+	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/go-spacemesh/p2p/config"
 	"github.com/spacemeshos/go-spacemesh/p2p/node"
 	"github.com/stretchr/testify/assert"
@@ -14,6 +18,17 @@ import (
 )
 
 const saveResults = false
+
+func init() {
+	if saveResults {
+		rnd, err := crypto.GetRandomBytes(4)
+		if err != nil {
+			panic("no random")
+		}
+		gcfg.ConfigValues.DataFilePath = fmt.Sprintf("~/.spacemesh/test-%d/", common.BytesToUint32(rnd))
+		log.Info("Saving logs in %v", gcfg.ConfigValues.DataFilePath)
+	}
+}
 
 type NodeTestInstance interface {
 	Service
