@@ -7,14 +7,6 @@ import (
 	"github.com/spacemeshos/go-spacemesh/log"
 )
 
-type BlsFetcher interface {
-	FetchBlsKey(edKey []byte) []byte
-}
-
-type ActivationValidator interface {
-	IsActive(blsKey []byte) bool
-}
-
 type PublicKey struct {
 	pub []byte
 }
@@ -38,6 +30,7 @@ type EdSigner struct {
 
 func NewEdSignerFromBuffer(buff []byte) (*EdSigner, error) {
 	if len(buff) < 32 {
+		log.Error("Could not create EdSigner from the provided buffer: buffer too small")
 		return nil, errors.New("buffer too small")
 	}
 	return &EdSigner{privKey: buff, pubKey: buff[:32]}, nil

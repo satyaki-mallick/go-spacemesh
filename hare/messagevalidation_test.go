@@ -88,7 +88,7 @@ func TestMessageValidator_Aggregated(t *testing.T) {
 	}
 	agg.Messages = msgs
 	assert.True(t, validator.validateAggregatedMessage(agg, funcs))
-	msgs[0].InnerSig=[]byte{1}
+	msgs[0].InnerSig = []byte{1}
 	assert.False(t, validator.validateAggregatedMessage(agg, funcs))
 
 	funcs = make([]func(m *Msg) bool, 1)

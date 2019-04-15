@@ -8,7 +8,7 @@ import (
 
 // Used to build proto messages
 type MessageBuilder struct {
-	msg *Msg
+	msg   *Msg
 	inner *pb.InnerMessage
 }
 
