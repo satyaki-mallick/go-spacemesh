@@ -162,7 +162,8 @@ func (validator *syntaxContextValidator) validateAggregatedMessage(aggMsg *pb.Ag
 	for _, innerMsg := range aggMsg.Messages {
 		// TODO: refill values in commit on certificate
 
-		iMsg, err := newMsg(innerMsg)
+		// TODO: should receive the state querier
+		iMsg, err := newMsg(innerMsg, mockStateQuerier{})
 		if err != nil {
 			validator.Warning("Aggregated validation failed: could not construct msg")
 			return false

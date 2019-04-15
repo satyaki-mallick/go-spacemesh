@@ -54,12 +54,23 @@ type State struct {
 	certificate *pb.Certificate // the certificate
 }
 
+type StateQuerier interface {
+	IsIdentityActive(id []byte) bool
+}
+
 type Msg struct {
 	*pb.HareMessage
 	PubKey []byte
 }
 
-func newMsg(hareMsg *pb.HareMessage) (*Msg, error) {
+type mockStateQuerier struct {
+}
+
+func (msq mockStateQuerier) IsIdentityActive(id []byte) bool {
+	return true
+}
+
+func newMsg(hareMsg *pb.HareMessage, querier StateQuerier) (*Msg, error) {
 	// data msg to bytes
 	data, err := proto.Marshal(hareMsg.Message)
 	if err != nil {
@@ -72,6 +83,13 @@ func newMsg(hareMsg *pb.HareMessage) (*Msg, error) {
 	if err != nil {
 		log.Error("newMsg constrcution failed: err=%v", err, len(hareMsg.InnerSig))
 		return nil, err
+	}
+
+	// check identity is active
+	pub := signing.NewPublicKey(pubKey)
+	if !querier.IsIdentityActive(pub.Bytes()) {
+		log.Error("extracetd identity is not active identity=%v", pub.String())
+		return nil, errors.New("inactive identity")
 	}
 
 	return &Msg{hareMsg, pubKey}, nil
