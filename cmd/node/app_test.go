@@ -57,9 +57,9 @@ func (app *AppTestSuite) initMultipleInstances(t *testing.T, numOfInstances int,
 		n := net.NewNode()
 
 		edSgn := signing.NewEdSigner()
-		pub := edSgn.Verifier()
+		pub := edSgn.PublicKey()
 		bo := oracle.NewLocalOracle(rolacle, numOfInstances, types.NodeId{Key: pub.String()})
-		bo.Register(true, edSgn.Verifier().String())
+		bo.Register(true, pub.String())
 
 		bv := sync2.BlockValidatorMock{}
 		err := app.apps[i].initServices(types.NodeId{Key: pub.String()}, n, store, edSgn, bo, bv, bo, numOfInstances)

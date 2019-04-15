@@ -52,7 +52,7 @@ type HareApp struct {
 	*cmdp.BaseApp
 	p2p    p2p.Service
 	oracle *oracle.OracleClient
-	sgn    signing.Signer
+	sgn    hare.Signer
 	ha     *hare.Hare
 	clock  *timesync.Ticker
 }
@@ -63,7 +63,7 @@ func NewHareApp() *HareApp {
 
 func (app *HareApp) Cleanup() {
 	// TODO: move to array of cleanup functions and execute all here
-	app.oracle.Unregister(true, app.sgn.Verifier().String())
+	app.oracle.Unregister(true, app.sgn.PublicKey().String())
 }
 
 func buildSet() *hare.Set {
@@ -85,7 +85,7 @@ func (app *HareApp) Start(cmd *cobra.Command, args []string) {
 		log.Panic("Error starting p2p services err=%v", err)
 	}
 
-	pub := app.sgn.Verifier()
+	pub := app.sgn.PublicKey()
 
 	lg := log.NewDefault(pub.String())
 

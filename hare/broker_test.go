@@ -23,7 +23,7 @@ type mockClient struct {
 func createMessage(t *testing.T, instanceId InstanceId) []byte {
 	sr := signing.NewEdSigner()
 	b := NewMessageBuilder()
-	msg := b.SetPubKey(sr.Verifier().Bytes()).SetInstanceId(instanceId).Sign(sr).Build()
+	msg := b.SetPubKey(sr.PublicKey().Bytes()).SetInstanceId(instanceId).Sign(sr).Build()
 
 	serMsg, err := proto.Marshal(msg)
 
@@ -289,7 +289,7 @@ func TestBroker_PubkeyExtraction(t *testing.T) {
 	for {
 		select {
 		case inMsg := <-inbox:
-			assert.Equal(t, sgn.Verifier().Bytes(), inMsg.PubKey)
+			assert.Equal(t, sgn.PublicKey().Bytes(), inMsg.PubKey)
 			return
 		case <-tm.C:
 			t.Error("Timeout")

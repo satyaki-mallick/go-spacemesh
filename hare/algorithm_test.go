@@ -114,7 +114,7 @@ func (mct *mockCommitTracker) BuildCertificate() *pb.Certificate {
 	return mct.certificate
 }
 
-func generateSigning(t *testing.T) signing.Signer {
+func generateSigning(t *testing.T) Signer {
 	return signing.NewEdSigner()
 }
 
@@ -234,11 +234,11 @@ func generateConsensusProcess(t *testing.T) *ConsensusProcess {
 
 	s := NewSetFromValues(value1)
 	oracle := NewMockHashOracle(numOfClients)
-	signing := NewMockSigning()
-	oracle.Register(signing.Verifier().String())
+	signing := signing.NewEdSigner()
+	oracle.Register(signing.PublicKey().String())
 	output := make(chan TerminationOutput, 1)
 
-	return NewConsensusProcess(cfg, instanceId1, s, oracle, signing, n1, output, log.NewDefault(signing.Verifier().String()))
+	return NewConsensusProcess(cfg, instanceId1, s, oracle, signing, n1, output, log.NewDefault(signing.PublicKey().String()))
 }
 
 func TestConsensusProcess_Id(t *testing.T) {
@@ -268,7 +268,7 @@ func TestConsensusProcess_InitDefaultBuilder(t *testing.T) {
 	s.Add(value1)
 	builder := proc.initDefaultBuilder(s)
 	assert.True(t, NewSet(builder.inner.Values).Equals(s))
-	verifier, _ := signing.NewVerifier(builder.msg.PubKey)
+	verifier := signing.NewPublicKey(builder.msg.PubKey)
 	assert.Equal(t, []byte(nil), verifier.Bytes())
 	assert.Equal(t, builder.inner.K, proc.k)
 	assert.Equal(t, builder.inner.Ki, proc.ki)
@@ -522,7 +522,7 @@ func TestConsensusProcess_handlePending(t *testing.T) {
 	for i := 0; i < count; i++ {
 		v := generateSigning(t)
 		m := BuildStatusMsg(v, NewSetFromValues(value1))
-		pending[v.Verifier().String()] = m
+		pending[v.PublicKey().String()] = m
 	}
 	proc.handlePending(pending)
 	assert.Equal(t, count, len(proc.inbox))

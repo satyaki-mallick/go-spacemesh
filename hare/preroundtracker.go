@@ -24,17 +24,12 @@ func NewPreRoundTracker(threshold int, expectedSize int) *PreRoundTracker {
 
 // Tracks a pre-round message
 func (pre *PreRoundTracker) OnPreRound(msg *Msg) {
-	verifier, err := signing.NewVerifier(msg.PubKey)
-	if err != nil {
-		log.Warning("Could not construct verifier: ", err)
-		return
-	}
-
+	pub := signing.NewPublicKey(msg.PubKey)
 	sToTrack := NewSet(msg.Message.Values) // assume track all values
 	alreadyTracked := NewSmallEmptySet()   // assume nothing tracked so far
 
-	if set, exist := pre.preRound[verifier.String()]; exist { // not first pre-round msg from this sender
-		log.Debug("Duplicate sender %v", verifier.String())
+	if set, exist := pre.preRound[pub.String()]; exist { // not first pre-round msg from this sender
+		log.Debug("Duplicate sender %v", pub.String())
 		alreadyTracked = set              // update already tracked values
 		sToTrack.Subtract(alreadyTracked) // subtract the already tracked values
 	}
@@ -46,7 +41,7 @@ func (pre *PreRoundTracker) OnPreRound(msg *Msg) {
 	}
 
 	// update the union to include new values
-	pre.preRound[verifier.String()] = alreadyTracked.Union(sToTrack)
+	pre.preRound[pub.String()] = alreadyTracked.Union(sToTrack)
 }
 
 // Returns true if the given value is provable, false otherwise

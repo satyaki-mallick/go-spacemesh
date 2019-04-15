@@ -3,7 +3,6 @@ package hare
 import (
 	"github.com/spacemeshos/go-spacemesh/crypto"
 	"github.com/spacemeshos/go-spacemesh/log"
-	"github.com/spacemeshos/go-spacemesh/signing"
 )
 
 type MockSigning struct {
@@ -33,7 +32,7 @@ func (ms *MockSigning) Sign(m []byte) []byte {
 	return sig
 }
 
-func (ms *MockSigning) Verifier() signing.Verifier {
+func (ms *MockSigning) Verifier() *PubVerifier {
 	v, err := NewVerifier(ms.key.GetPublicKey().Bytes())
 	if err != nil {
 		log.Panic("Error getting public key", err.Error())

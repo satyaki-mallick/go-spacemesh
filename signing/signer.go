@@ -2,6 +2,7 @@ package signing
 
 import (
 	"errors"
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/spacemeshos/ed25519"
 	"github.com/spacemeshos/go-spacemesh/log"
 )
@@ -14,9 +15,20 @@ type ActivationValidator interface {
 	IsActive(blsKey []byte) bool
 }
 
-type Signer interface {
-	Sign(m []byte) []byte
-	Verifier() Verifier
+type PublicKey struct {
+	pub []byte
+}
+
+func NewPublicKey(pub []byte) *PublicKey {
+	return &PublicKey{pub}
+}
+
+func (p *PublicKey) Bytes() []byte {
+	return p.pub
+}
+
+func (p *PublicKey) String() string {
+	return base58.Encode(p.Bytes())
 }
 
 type EdSigner struct {
@@ -45,9 +57,8 @@ func (es *EdSigner) Sign(m []byte) []byte {
 	return ed25519.Sign2(es.privKey, m)
 }
 
-func (es *EdSigner) Verifier() Verifier {
-	v, _ := NewVerifier([]byte(es.pubKey))
-	return v
+func (es *EdSigner) PublicKey() *PublicKey {
+	return NewPublicKey(es.pubKey)
 }
 
 func (es *EdSigner) ToBuffer() []byte {

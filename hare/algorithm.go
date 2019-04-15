@@ -26,6 +26,11 @@ type NetworkService interface {
 	Broadcast(protocol string, payload []byte) error
 }
 
+type Signer interface {
+	Sign(m []byte) []byte
+	PublicKey() *signing.PublicKey
+}
+
 type procOutput struct {
 	id  InstanceId
 	set *Set
@@ -58,14 +63,14 @@ func newMsg(hareMsg *pb.HareMessage) (*Msg, error) {
 	// data msg to bytes
 	data, err := proto.Marshal(hareMsg.Message)
 	if err != nil {
-		log.Error("Could not marshal")
+		log.Error("Could not marshal err=%v", err)
 		return nil, err
 	}
 
 	// extract pub key
 	pubKey, err := ed25519.ExtractPublicKey(data, hareMsg.InnerSig)
 	if err != nil {
-		log.Warning("newMsg constrcution failed: err=%v", err, len(hareMsg.InnerSig))
+		log.Error("newMsg constrcution failed: err=%v", err, len(hareMsg.InnerSig))
 		return nil, err
 	}
 
@@ -78,7 +83,7 @@ type ConsensusProcess struct {
 	Closer
 	instanceId        InstanceId  // the id of this consensus instance
 	oracle            HareRolacle // roles oracle
-	signing           signing.Signer
+	signing           Signer
 	network           NetworkService
 	isStarted         bool
 	inbox             chan *Msg
@@ -96,7 +101,7 @@ type ConsensusProcess struct {
 }
 
 // Creates a new consensus process instance
-func NewConsensusProcess(cfg config.Config, instanceId InstanceId, s *Set, oracle Rolacle, signing signing.Signer, p2p NetworkService, terminationReport chan TerminationOutput, logger log.Log) *ConsensusProcess {
+func NewConsensusProcess(cfg config.Config, instanceId InstanceId, s *Set, oracle Rolacle, signing Signer, p2p NetworkService, terminationReport chan TerminationOutput, logger log.Log) *ConsensusProcess {
 	proc := &ConsensusProcess{}
 	proc.State = State{-1, -1, s.Clone(), nil}
 	proc.Closer = NewCloser()
@@ -222,18 +227,13 @@ func (proc *ConsensusProcess) onEarlyMessage(m *Msg) {
 		return
 	}
 
-	verifier, err := signing.NewVerifier(m.PubKey)
-	if err != nil {
-		proc.Warning("Could not construct verifier: ", err)
+	pub := signing.NewPublicKey(m.PubKey)
+	if _, exist := proc.pending[pub.String()]; exist { // ignore, already received
+		proc.Warning("Already received message from sender %v", pub.String())
 		return
 	}
 
-	if _, exist := proc.pending[verifier.String()]; exist { // ignore, already received
-		proc.Warning("Already received message from sender %v", verifier.String())
-		return
-	}
-
-	proc.pending[verifier.String()] = m
+	proc.pending[pub.String()] = m
 }
 
 func (proc *ConsensusProcess) handleMessage(m *Msg) {
@@ -409,7 +409,7 @@ func (proc *ConsensusProcess) roleProof() Signature {
 	kInBytes := make([]byte, 4)
 	binary.LittleEndian.PutUint32(kInBytes, uint32(proc.k))
 	hash := fnv.New32()
-	hash.Write(proc.signing.Verifier().Bytes())
+	hash.Write(proc.signing.PublicKey().Bytes())
 	hash.Write(kInBytes)
 
 	hashBytes := make([]byte, 4)
@@ -550,7 +550,7 @@ func (proc *ConsensusProcess) isEligible() bool {
 
 // Returns the role matching the current round if eligible for this round, false otherwise
 func (proc *ConsensusProcess) currentRole() Role {
-	if proc.oracle.Eligible(proc.instanceId, proc.k, proc.signing.Verifier().String(), proc.roleProof()) {
+	if proc.oracle.Eligible(proc.instanceId, proc.k, proc.signing.PublicKey().String(), proc.roleProof()) {
 		if proc.currentRound() == Round2 {
 			return Leader
 		}

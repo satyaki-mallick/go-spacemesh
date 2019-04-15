@@ -9,7 +9,7 @@ import (
 )
 
 func defaultValidator() *syntaxContextValidator {
-	return newSyntaxContextValidator(NewMockSigning(), lowThresh10, func(m *Msg) bool {
+	return newSyntaxContextValidator(signing.NewEdSigner(), lowThresh10, func(m *Msg) bool {
 		return true
 	}, log.NewDefault("Validator"))
 }
@@ -63,7 +63,7 @@ func TestMessageValidator_IsStructureValid(t *testing.T) {
 	assert.False(t, validator.SyntacticallyValidateMessage(nil))
 	m := &Msg{&pb.HareMessage{}, nil}
 	assert.False(t, validator.SyntacticallyValidateMessage(m))
-	m.PubKey = generateSigning(t).Verifier().Bytes()
+	m.PubKey = generateSigning(t).PublicKey().Bytes()
 	assert.False(t, validator.SyntacticallyValidateMessage(m))
 	m.Message = &pb.InnerMessage{}
 	assert.False(t, validator.SyntacticallyValidateMessage(m))
@@ -110,7 +110,7 @@ func TestConsensusProcess_isContextuallyValid(t *testing.T) {
 		for i := 0; i < 4; i++ {
 			builder := NewMessageBuilder()
 			builder.SetType(msgType[j]).SetInstanceId(instanceId1).SetRoundCounter(cp.k).SetKi(ki).SetValues(s)
-			builder = builder.Sign(NewMockSigning())
+			builder = builder.Sign(signing.NewEdSigner())
 			//mt.Printf("%v   j=%v i=%v Exp: %v Actual %v\n", cp.k, j, i, rounds[j][i], ContextuallyValidateMessage(builder.Build(), cp.k))
 			validator := defaultValidator()
 			assert.Equal(t, true, validator.ContextuallyValidateMessage(builder.Build(), cp.k))
@@ -124,18 +124,18 @@ func TestMessageValidator_ValidateMessage(t *testing.T) {
 	proc.advanceToNextRound()
 	v := proc.validator
 	preround := proc.initDefaultBuilder(proc.s).SetType(PreRound).Sign(proc.signing).Build()
-	preround.PubKey = proc.signing.Verifier().Bytes()
+	preround.PubKey = proc.signing.PublicKey().Bytes()
 	assert.True(t, v.SyntacticallyValidateMessage(preround))
 	assert.True(t, v.ContextuallyValidateMessage(preround, 0))
 	status := proc.initDefaultBuilder(proc.s).SetType(Status).Sign(proc.signing).Build()
-	status.PubKey = proc.signing.Verifier().Bytes()
+	status.PubKey = proc.signing.PublicKey().Bytes()
 	assert.True(t, v.ContextuallyValidateMessage(status, 0))
 	assert.True(t, v.SyntacticallyValidateMessage(status))
 
 }
 
 func TestMessageValidator_SyntacticallyValidateMessage(t *testing.T) {
-	validator := newSyntaxContextValidator(NewMockSigning(), 1, validate, log.NewDefault("Validator"))
+	validator := newSyntaxContextValidator(signing.NewEdSigner(), 1, validate, log.NewDefault("Validator"))
 	m := BuildPreRoundMsg(generateSigning(t), NewSmallEmptySet())
 	assert.False(t, validator.SyntacticallyValidateMessage(m))
 	m = BuildPreRoundMsg(generateSigning(t), NewSetFromValues(value1))
@@ -143,7 +143,7 @@ func TestMessageValidator_SyntacticallyValidateMessage(t *testing.T) {
 }
 
 func TestMessageValidator_ContextuallyValidateMessage(t *testing.T) {
-	validator := newSyntaxContextValidator(NewMockSigning(), 1, validate, log.NewDefault("Validator"))
+	validator := newSyntaxContextValidator(signing.NewEdSigner(), 1, validate, log.NewDefault("Validator"))
 	m := BuildPreRoundMsg(generateSigning(t), NewSmallEmptySet())
 	m.Message = nil
 	assert.False(t, validator.ContextuallyValidateMessage(m, 0))
@@ -155,7 +155,7 @@ func TestMessageValidator_ContextuallyValidateMessage(t *testing.T) {
 }
 
 func TestMessageValidator_validateSVPTypeA(t *testing.T) {
-	m := buildProposalMsg(NewMockSigning(), NewSetFromValues(value1, value2, value3), []byte{})
+	m := buildProposalMsg(signing.NewEdSigner(), NewSetFromValues(value1, value2, value3), []byte{})
 	s1 := NewSetFromValues(value1)
 	s2 := NewSetFromValues(value3)
 	s3 := NewSetFromValues(value1, value5)
@@ -169,7 +169,7 @@ func TestMessageValidator_validateSVPTypeA(t *testing.T) {
 }
 
 func TestMessageValidator_validateSVPTypeB(t *testing.T) {
-	m := buildProposalMsg(NewMockSigning(), NewSetFromValues(value1, value2, value3), []byte{})
+	m := buildProposalMsg(signing.NewEdSigner(), NewSetFromValues(value1, value2, value3), []byte{})
 	s1 := NewSetFromValues(value1)
 	m.Message.Svp = buildSVP(-1, s1)
 	s := NewSetFromValues(value1)

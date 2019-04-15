@@ -29,19 +29,14 @@ func NewStatusTracker(threshold int, expectedSize int) *StatusTracker {
 
 // Records the given status message
 func (st *StatusTracker) RecordStatus(msg *Msg) {
-	verifier, err := signing.NewVerifier(msg.PubKey)
-	if err != nil {
-		st.Warning("Could not construct verifier: ", err)
-		return
-	}
-
-	_, exist := st.statuses[verifier.String()]
+	pub := signing.NewPublicKey(msg.PubKey)
+	_, exist := st.statuses[pub.String()]
 	if exist { // already handled this sender's status msg
-		st.Warning("Duplicated status message detected %v", verifier.String())
+		st.Warning("Duplicated status message detected %v", pub.String())
 		return
 	}
 
-	st.statuses[verifier.String()] = msg
+	st.statuses[pub.String()] = msg
 }
 
 // Analyzes the recorded status messages according to the validation function

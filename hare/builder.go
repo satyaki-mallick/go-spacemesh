@@ -4,7 +4,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/spacemeshos/go-spacemesh/hare/pb"
 	"github.com/spacemeshos/go-spacemesh/log"
-	"github.com/spacemeshos/go-spacemesh/signing"
 )
 
 // Used to build proto messages
@@ -29,7 +28,7 @@ func (builder *MessageBuilder) SetCertificate(certificate *pb.Certificate) *Mess
 	return builder
 }
 
-func (builder *MessageBuilder) Sign(signing signing.Signer) *MessageBuilder {
+func (builder *MessageBuilder) Sign(signing Signer) *MessageBuilder {
 	buff, err := proto.Marshal(builder.inner)
 	if err != nil {
 		log.Panic("marshal failed during signing")

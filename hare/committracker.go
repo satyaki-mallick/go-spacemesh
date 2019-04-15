@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/spacemeshos/go-spacemesh/hare/metrics"
 	"github.com/spacemeshos/go-spacemesh/hare/pb"
-	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/go-spacemesh/signing"
 )
 
@@ -42,17 +41,12 @@ func (ct *CommitTracker) OnCommit(msg *Msg) {
 		return
 	}
 
-	verifier, err := signing.NewVerifier(msg.PubKey)
-	if err != nil {
-		log.Warning("Could not construct verifier: ", err)
+	pub := signing.NewPublicKey(msg.PubKey)
+	if ct.seenSenders[pub.String()] {
 		return
 	}
 
-	if ct.seenSenders[verifier.String()] {
-		return
-	}
-
-	ct.seenSenders[verifier.String()] = true
+	ct.seenSenders[pub.String()] = true
 
 	s := NewSet(msg.Message.Values)
 	if !ct.proposedSet.Equals(s) { // ignore commit on different set

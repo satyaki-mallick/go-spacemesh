@@ -217,8 +217,6 @@ func (app *SpacemeshApp) getAppInfo() string {
 func (app *SpacemeshApp) Cleanup(cmd *cobra.Command, args []string) (err error) {
 	log.Info("App Cleanup starting...")
 
-	ioutil.WriteFile("identity.ed", app.edSgn.ToBuffer(), 0644)
-
 	if app.jsonAPIService != nil {
 		log.Info("Stopping JSON service api...")
 		app.jsonAPIService.StopService()
@@ -254,7 +252,7 @@ func (app *SpacemeshApp) setupTestFeatures() {
 	api.ApproveAPIGossipMessages(cmdp.Ctx, app.P2P)
 }
 
-func (app *SpacemeshApp) initServices(nodeID types.NodeId, swarm service.Service, dbStorepath string, sgn signing.Signer,
+func (app *SpacemeshApp) initServices(nodeID types.NodeId, swarm service.Service, dbStorepath string, sgn hare.Signer,
 	blockOracle oracle.BlockOracle, blockValidator sync.BlockValidator, hareOracle hare.Rolacle, layerSize int) error {
 
 	app.instanceName = nodeID.Key
@@ -302,7 +300,7 @@ func (app *SpacemeshApp) initServices(nodeID types.NodeId, swarm service.Service
 
 	ha := hare.New(app.Config.HARE, swarm, sgn, msh, hareOracle, clock.Subscribe(), lg.WithName("hare"))
 
-	nodeID = types.NodeId{Key: sgn.Verifier().String()} // TODO: where does this come from?
+	nodeID = types.NodeId{Key: sgn.PublicKey().String()} // TODO: where does this come from?
 	blockProducer := miner.NewBlockBuilder(nodeID, swarm, clock.Subscribe(), coinToss, msh, ha, blockOracle, lg.WithName("blockProducer"))
 	blockListener := sync.NewBlockListener(swarm, blockValidator, msh, 2*time.Second, 4, lg.WithName("blockListener"))
 
@@ -365,23 +363,43 @@ func (app SpacemeshApp) stopServices() {
 
 }
 
-func getEdIdentity() *signing.EdSigner {
-	// read key from file if exist
-	log.Info("Reading identity from file")
+func isFileExist(name string) (bool, error) {
+	_, err := os.Stat(name)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return err != nil, err
+}
+
+func getEdIdentity() (*signing.EdSigner, error) {
 	dataDir, err := filesystem.GetSpacemeshDataDirectoryPath()
 	if err != nil {
 		log.Error("Could not get data path err=%v", err)
-		return signing.NewEdSigner()
+		return signing.NewEdSigner(), err
 	}
 
-	buff, e1 := ioutil.ReadFile( dataDir + "/identity.ed")
-	edSgn, e2 := signing.NewEdSignerFromBuffer(buff)
-	if e1 != nil || e2 != nil {
-		log.Warning("Failed to read identity. Creating new ed key pair. e1=%v e2=%v", e1, e2)
-		return signing.NewEdSigner()
+	f := dataDir + "/identity.ed"
+	if exist, _ := isFileExist(f); exist {
+		log.Warning("Identity file not found. Creating new identity")
+		edSgn := signing.NewEdSigner()
+		ioutil.WriteFile("identity.ed", edSgn.ToBuffer(), 0644)
+		return edSgn, nil
 	}
 
-	return edSgn
+	log.Info("Identity file exist. Reading identity from file")
+	buff, err := ioutil.ReadFile(f)
+	if err != nil {
+		log.Error("Could not read identity from file err=%v", err)
+		return nil, err
+	}
+
+	edSgn, err := signing.NewEdSignerFromBuffer(buff)
+	if err != nil {
+		log.Error("Could not construct identity from data file err=%v", err)
+		return nil, err
+	}
+
+	return edSgn, nil
 }
 
 func (app *SpacemeshApp) Start(cmd *cobra.Command, args []string) {
@@ -397,18 +415,21 @@ func (app *SpacemeshApp) Start(cmd *cobra.Command, args []string) {
 
 	// todo : register all protocols
 
-	app.edSgn = getEdIdentity()
+	app.edSgn, err = getEdIdentity()
+	if err != nil {
+		log.Panic("Could not retrieve identity err=%v", err)
+	}
 
 	//crypto.NewPublicKey(sgn.Verifier().Bytes())
 	// TODO ADD KEY
 
 	oracle.SetServerAddress(app.Config.OracleServer)
 	oracleClient := oracle.NewOracleClientWithWorldID(uint64(app.Config.OracleServerWorldId))
-	oracleClient.Register(true, app.edSgn.Verifier().String()) // todo: configure no faulty nodes
+	oracleClient.Register(true, app.edSgn.PublicKey().String()) // todo: configure no faulty nodes
 
-	app.unregisterOracle = func() { oracleClient.Unregister(true, app.edSgn.Verifier().String()) }
+	app.unregisterOracle = func() { oracleClient.Unregister(true, app.edSgn.PublicKey().String()) }
 
-	nodeID := types.NodeId{Key: app.edSgn.Verifier().String()}
+	nodeID := types.NodeId{Key: app.edSgn.PublicKey().String()}
 	bo := oracle.NewBlockOracleFromClient(oracleClient, int(app.Config.CONSENSUS.NodesPerLayer), nodeID)
 	//nodesPerLayer := app.Config.CONSENSUS.NodesPerLayer
 	//layersPerEpoch := app.Config.CONSENSUS.LayersPerEpoch

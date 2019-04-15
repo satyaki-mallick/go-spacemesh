@@ -1,20 +1,19 @@
 package hare
 
 import (
-	"github.com/spacemeshos/go-spacemesh/signing"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
-func buildStatusMsg(signing signing.Signer, s *Set, ki int32) *Msg {
+func buildStatusMsg(signing Signer, s *Set, ki int32) *Msg {
 	builder := NewMessageBuilder()
 	builder.SetType(Status).SetInstanceId(instanceId1).SetRoundCounter(Round1).SetKi(ki).SetValues(s)
-	builder = builder.SetPubKey(signing.Verifier().Bytes()).Sign(signing)
+	builder = builder.SetPubKey(signing.PublicKey().Bytes()).Sign(signing)
 
 	return builder.Build()
 }
 
-func BuildStatusMsg(signing signing.Signer, s *Set) *Msg {
+func BuildStatusMsg(signing Signer, s *Set) *Msg {
 	return buildStatusMsg(signing, s, -1)
 }
 

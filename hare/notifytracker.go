@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/spacemeshos/go-spacemesh/hare/metrics"
-	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/go-spacemesh/signing"
 	"hash/fnv"
 )
@@ -28,18 +27,13 @@ func NewNotifyTracker(expectedSize int) *NotifyTracker {
 // Track the provided notification message
 // Returns true if the message didn't affect the state, false otherwise
 func (nt *NotifyTracker) OnNotify(msg *Msg) bool {
-	verifier, err := signing.NewVerifier(msg.PubKey)
-	if err != nil {
-		log.Warning("Could not construct verifier: ", err)
-		return true
-	}
-
-	if _, exist := nt.notifies[verifier.String()]; exist { // already seenSenders
+	pub := signing.NewPublicKey(msg.PubKey)
+	if _, exist := nt.notifies[pub.String()]; exist { // already seenSenders
 		return true // ignored
 	}
 
 	// keep msg for pub
-	nt.notifies[verifier.String()] = struct{}{}
+	nt.notifies[pub.String()] = struct{}{}
 
 	// track that set
 	s := NewSet(msg.Message.Values)

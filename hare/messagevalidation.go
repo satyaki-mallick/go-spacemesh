@@ -33,14 +33,9 @@ func (ev *eligibilityValidator) validateRole(m *Msg) bool {
 
 	// TODO: validate role proof sig
 
-	verifier, err := signing.NewVerifier(m.PubKey)
-	if err != nil {
-		ev.Error("Could not build verifier")
-		return false
-	}
-
+	pub := signing.NewPublicKey(m.PubKey)
 	// validate role
-	if !ev.oracle.Eligible(InstanceId(m.Message.InstanceId), m.Message.K, verifier.String(), Signature(m.Message.RoleProof)) {
+	if !ev.oracle.Eligible(InstanceId(m.Message.InstanceId), m.Message.K, pub.String(), Signature(m.Message.RoleProof)) {
 		ev.Warning("Role validation failed")
 		return false
 	}
@@ -60,13 +55,13 @@ func (ev *eligibilityValidator) Validate(m *Msg) bool {
 }
 
 type syntaxContextValidator struct {
-	signing         signing.Signer
+	signing         Signer
 	threshold       int
 	statusValidator func(m *Msg) bool // used to validate status messages in SVP
 	log.Log
 }
 
-func newSyntaxContextValidator(signing signing.Signer, threshold int, validator func(m *Msg) bool, logger log.Log) *syntaxContextValidator {
+func newSyntaxContextValidator(signing Signer, threshold int, validator func(m *Msg) bool, logger log.Log) *syntaxContextValidator {
 	return &syntaxContextValidator{signing, threshold, validator, logger}
 }
 
@@ -179,16 +174,16 @@ func (validator *syntaxContextValidator) validateAggregatedMessage(aggMsg *pb.Ag
 		}
 
 		// validate unique sender
-		verifier, err := signing.NewVerifier(iMsg.PubKey)
+		pub := signing.NewPublicKey(iMsg.PubKey)
 		if err != nil {
-			validator.Warning("Aggregated validation failed: could not construct verifier: %v", err)
+			validator.Warning("Aggregated validation failed: could not construct pub: %v", err)
 			return false
 		}
-		if _, exist := senders[verifier.String()]; exist { // pub already exist
+		if _, exist := senders[pub.String()]; exist { // pub already exist
 			validator.Warning("Aggregated validation failed: detected same pubKey for different messages")
 			return false
 		}
-		senders[verifier.String()] = struct{}{} // mark sender as exist
+		senders[pub.String()] = struct{}{} // mark sender as exist
 
 		// validate with attached validators
 		for _, vFunc := range validators {
