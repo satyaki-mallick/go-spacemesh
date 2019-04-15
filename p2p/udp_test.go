@@ -127,7 +127,7 @@ func TestUDPMux_sendMessageImpl(t *testing.T) {
 		return node.EmptyNode, errors.New("nonode")
 	}
 
-	m := NewUDPMux(nd.PublicKey(), 0, nil, udpMock, log.New("test", "", ""))
+	m := NewUDPMux(nd.PublicKey(), 0, f, udpMock, log.New("test", "", ""))
 	require.NotNil(t, m)
 	data := service.DataBytes{[]byte(test_str)}
 

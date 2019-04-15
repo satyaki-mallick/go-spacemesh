@@ -170,7 +170,7 @@ func Test_ConnectionBeforeMessage(t *testing.T) {
 			p1 := p2pTestInstance(t, config.DefaultConfig())
 			sa.add(p1)
 			_ = p1.RegisterDirectProtocol(exampleProtocol)
-			p1.dht.Update(p2.lNode.Node)
+			p1.dht.Update(p2.NodeInfo())
 			p1.SendMessage(p2.lNode.PublicKey(), exampleProtocol, payload)
 		}()
 	}
@@ -214,7 +214,7 @@ func TestSwarm_RoundTrip(t *testing.T) {
 	exchan2 := p2.RegisterDirectProtocol(exampleProtocol)
 	assert.Equal(t, exchan2, p2.directProtocolHandlers[exampleProtocol])
 
-	p2.dht.Update(p1.lNode.Node)
+	p2.dht.Update(p1.NodeInfo())
 
 	sendDirectMessage(t, p2, p1.lNode.PublicKey(), exchan1, true)
 	sendDirectMessage(t, p1, p2.lNode.PublicKey(), exchan2, true)
@@ -234,7 +234,7 @@ func TestSwarm_MultipleMessages(t *testing.T) {
 
 	err := p2.SendMessage(p1.lNode.PublicKey(), exampleProtocol, []byte(examplePayload))
 	assert.Error(t, err, "ERR") // should'nt be in routing table
-	p2.dht.Update(p1.lNode.Node)
+	p2.dht.Update(p1.NodeInfo())
 
 	var wg sync.WaitGroup
 	for i := 0; i < 500; i++ {
@@ -366,7 +366,7 @@ func TestSwarm_MultipleMessagesFromMultipleSendersToMultipleProtocols(t *testing
 		go func() {
 			p := p2pTestInstance(t, cfg)
 			sa.add(p)
-			p.dht.Update(p1.LocalNode().Node)
+			p.dht.Update(p1.NodeInfo())
 			mychan := make(chan struct{})
 			mu.Lock()
 			pend[p.lNode.Node.PublicKey().String()] = mychan

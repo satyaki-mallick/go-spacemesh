@@ -153,7 +153,7 @@ func newSwarm(ctx context.Context, config config.Config, newNode bool, persist b
 		return nil, err
 	}
 	// todo : if discovery on
-	s.dht = dht.New(s.UDPNode, config.SwarmConfig, s.udpServer, s.lNode.Log) // create table and discovery protocol
+	s.dht = dht.New(s.NodeInfo, config.SwarmConfig, s.udpServer, s.lNode.Log) // create table and discovery protocol
 
 	cpool := connectionpool.NewConnectionPool(s.network, l.PublicKey())
 
@@ -183,7 +183,8 @@ func (s *swarm) setupUDP() error {
 }
 
 // Node is the node address we have
-func (s *swarm) TCPNode() node.Node {
+func (s *swarm) NodeInfo() node.Node {
+	// TODO: this need to include both UDP and TCP Addreses. for now assuming they're the same
 	return node.New(s.lNode.PublicKey(), s.network.ListenAddress().String())
 }
 
