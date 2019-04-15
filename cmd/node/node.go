@@ -40,6 +40,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+const identityFile = "identity.ed"
+
 // VersionCmd returns the current version of spacemesh
 var Cmd = &cobra.Command{
 	Use:   "node",
@@ -363,31 +365,26 @@ func (app SpacemeshApp) stopServices() {
 
 }
 
-func isFileExist(name string) (bool, error) {
-	_, err := os.Stat(name)
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return err != nil, err
-}
-
 func getEdIdentity() (*signing.EdSigner, error) {
 	dataDir, err := filesystem.GetSpacemeshDataDirectoryPath()
 	if err != nil {
 		log.Error("Could not get data path err=%v", err)
-		return signing.NewEdSigner(), err
+		return nil, err
 	}
 
-	f := dataDir + "/identity.ed"
-	if exist, _ := isFileExist(f); exist {
-		log.Warning("Identity file not found. Creating new identity")
+	f := dataDir + "/" + identityFile
+	buff, err := ioutil.ReadFile(f)
+	if os.IsNotExist(err) {
 		edSgn := signing.NewEdSigner()
-		ioutil.WriteFile("identity.ed", edSgn.ToBuffer(), 0644)
+		log.Warning("Identity file not found. Public key of new identity is %v", edSgn.PublicKey())
+		err := ioutil.WriteFile(f, edSgn.ToBuffer(), 0644)
+		if err != nil {
+			log.Error("Could not write the identity to file err=%v", err)
+			return nil, err
+		}
 		return edSgn, nil
 	}
 
-	log.Info("Identity file exist. Reading identity from file")
-	buff, err := ioutil.ReadFile(f)
 	if err != nil {
 		log.Error("Could not read identity from file err=%v", err)
 		return nil, err
